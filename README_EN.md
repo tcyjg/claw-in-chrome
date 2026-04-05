@@ -11,15 +11,14 @@
 
 [简体中文](./README.md) | English
 
-This is a Chrome side panel assistant extension. You only need to upload this `claw in chrome` folder, because the README files and screenshots are already inside it.
+"A Chrome sidebar assistant extension that lifts the login and plan restrictions of 'Claude in Chrome'. It features support for custom model providers and allows editing of previously restricted parameters, optimizing your LLM's performance within the plugin."
 
 ## Overview
 
-This extension is mainly used to:
+Main features of this extension:
 
-- chat in the side panel
-- connect your own model API
-- choose `OpenAI Chat Completions` or `OpenAI Responses API`
+- Support for integrating your own model API.
+- Let AI control your browser from the sidebar to complete tasks for you.
 
 
 ## 1. Install

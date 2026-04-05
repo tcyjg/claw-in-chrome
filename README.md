@@ -11,15 +11,14 @@
 
 简体中文 | [English](./README_EN.md)
 
-这是一个放在 Chrome 侧边栏里的助手扩展。你只需要上传当前这个 `claw in chrome` 文件夹即可，README 和图片都已经放在里面了。
+这是一个放在 Chrome 侧边栏里的助手扩展。解除了Claude in Chrome的登录限制和套餐限制,支持自定义模型供应商,并且支持编辑原插件不支持编辑的参数,让您的大模型在该插件中有更好的表现!
 
 ## 简介
 
-这个扩展主要用来：
+这个扩展主要功能：
 
-- 在侧边栏里聊天
-- 接入你自己的模型接口
-- 选择 `OpenAI Chat Completions` 或 `OpenAI Responses API`
+- 支持接入你自己的模型接口
+- 在侧边栏让ai操控你的浏览器帮你完成任务
 
 ![侧边栏聊天界面](./docs/screenshots/03.png)
 
