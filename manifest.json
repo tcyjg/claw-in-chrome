@@ -71,8 +71,7 @@
   "storage": {
     "managed_schema": "managed_schema.json"
   },
-  "update_url": "https://clients2.google.com/service/update2/crx",
-  "version": "1.0.66",
+  "version": "1.0.66.0",
   "web_accessible_resources": [
     {
       "matches": ["https://*.claude.ai/*", "https://claude.ai/*"],

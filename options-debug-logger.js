@@ -239,6 +239,24 @@
       hash: location.hash
     });
   });
+  async function loadLocalOptionsDebugAddon() {
+    if (!chrome?.runtime?.getURL) {
+      return;
+    }
+    try {
+      const baseUrl = chrome.runtime.getURL("options-update-preview.local.js");
+      const response = await fetch(baseUrl, {
+        cache: "no-store"
+      });
+      if (!response.ok) {
+        return;
+      }
+      await import(`${baseUrl}?ts=${Date.now()}`);
+      log("options.debug.local-addon.loaded", {
+        href: location.pathname
+      });
+    } catch {}
+  }
   document.addEventListener("click", function (event) {
     const target = event.target instanceof Element ? event.target.closest("button, a, input, label") : null;
     if (!target) {
@@ -251,6 +269,7 @@
       className: target.className || ""
     });
   }, true);
+  loadLocalOptionsDebugAddon().catch(function () {});
   log("options.debug.bootstrap", {
     href: location.pathname
   });

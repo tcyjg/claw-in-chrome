@@ -186,6 +186,53 @@
     }
     return "high";
   }
+  function extractMaxTokenLimit(value) {
+    const text = typeof value === "string" ? value : String(value || "");
+    if (!text) {
+      return null;
+    }
+    const match = text.match(/max(?:[_\s-]?(?:output|completion))?[_\s-]?tokens?\s*>\s*(\d+)/i);
+    if (!match) {
+      return null;
+    }
+    const limit = Number(match[1]);
+    return Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : null;
+  }
+  function readRequestMaxTokens(body) {
+    if (!body || typeof body !== "object") {
+      return null;
+    }
+    const keys = ["max_completion_tokens", "max_output_tokens", "max_tokens"];
+    for (const key of keys) {
+      const value = Number(body[key]);
+      if (Number.isFinite(value) && value > 0) {
+        return {
+          key,
+          value
+        };
+      }
+    }
+    return null;
+  }
+  function clampRequestMaxTokens(body, limit) {
+    if (!body || typeof body !== "object") {
+      return null;
+    }
+    const normalizedLimit = Number(limit);
+    if (!Number.isFinite(normalizedLimit) || normalizedLimit <= 0) {
+      return null;
+    }
+    const current = readRequestMaxTokens(body);
+    if (!current || current.value <= normalizedLimit) {
+      return null;
+    }
+    body[current.key] = Math.floor(normalizedLimit);
+    return {
+      key: current.key,
+      previous: current.value,
+      next: body[current.key]
+    };
+  }
   function cleanSchema(schema) {
     if (!schema || typeof schema !== "object") {
       return schema;
@@ -1822,107 +1869,141 @@
         providerUrl,
         stream: isStreamRequest
       });
-      const upstream = await nativeFetch(providerUrl, {
-        method: "POST",
-        headers: buildProviderHeaders(request.headers, candidateConfig, isStreamRequest),
-        body: JSON.stringify(providerBody),
-        signal: request.signal
-      });
-      if (!upstream.ok) {
-        const providerError = await parseProviderError(upstream, "自定义模型供应商返回了错误。");
-        debugLog("provider.request_failed", {
-          attempt: index + 1,
-          totalAttempts: candidates.length,
-          format: candidate.format,
-          reason: candidate.reason,
-          providerUrl,
-          status: providerError.status,
-          message: providerError.message,
-          bodyPreview: truncateText(providerError.text, 500)
-        }, "warn");
-        if (index < candidates.length - 1) {
-          continue;
-        }
-        return createAnthropicErrorResponse(providerError.status, providerError.message);
-      }
-      const contentType = upstream.headers.get("content-type") || "";
-      debugLog("provider.request_upstream_ok", {
-        attempt: index + 1,
-        totalAttempts: candidates.length,
-        format: candidate.format,
-        providerUrl,
-        contentType,
-        stream: isStreamRequest
-      });
-      if (isStreamRequest && contentType.includes("text/event-stream") && upstream.body) {
-        let detectedStreamFormat = candidate.format;
-        let liveStream = upstream.body;
-        if (typeof upstream.body.tee === "function") {
-          const streams = upstream.body.tee();
-          const probeStream = streams[0];
-          liveStream = streams[1];
-          detectedStreamFormat = await detectOpenAIStreamFormat(probeStream, candidate.format);
-        }
-        debugLog("provider.stream_detected", {
-          attempt: index + 1,
-          totalAttempts: candidates.length,
-          requestedFormat: candidate.format,
-          detectedFormat: detectedStreamFormat,
-          providerUrl
+      let shouldTryNextCandidate = false;
+      let lastProviderError = null;
+      for (let retryIndex = 0; retryIndex < 2; retryIndex++) {
+        const upstream = await nativeFetch(providerUrl, {
+          method: "POST",
+          headers: buildProviderHeaders(request.headers, candidateConfig, isStreamRequest),
+          body: JSON.stringify(providerBody),
+          signal: request.signal
         });
-        const transformedStream = detectedStreamFormat === OPENAI_CHAT_FORMAT ? createAnthropicStreamFromOpenAIChat(liveStream) : createAnthropicStreamFromResponses(liveStream);
-        return createSseResponse(upstream, transformedStream);
-      }
-      const upstreamText = await upstream.text();
-      const upstreamJson = safeJsonParse(upstreamText, null);
-      if (!upstreamJson || typeof upstreamJson !== "object") {
-        debugLog("provider.request_invalid_json", {
+        if (!upstream.ok) {
+          const providerError = await parseProviderError(upstream, "自定义模型供应商返回了错误。");
+          lastProviderError = providerError;
+          const detectedLimit = extractMaxTokenLimit(providerError.message) || extractMaxTokenLimit(providerError.text);
+          const appliedClamp = detectedLimit != null ? clampRequestMaxTokens(providerBody, detectedLimit) : null;
+          if (appliedClamp) {
+            debugLog("provider.request_retry_with_capped_max_tokens", {
+              attempt: index + 1,
+              retry: retryIndex + 1,
+              totalAttempts: candidates.length,
+              format: candidate.format,
+              reason: candidate.reason,
+              providerUrl,
+              status: providerError.status,
+              model: String(providerBody?.model || body?.model || config?.defaultModel || ""),
+              tokenKey: appliedClamp.key,
+              previousMaxTokens: appliedClamp.previous,
+              cappedMaxTokens: appliedClamp.next,
+              message: providerError.message
+            }, "warn");
+            continue;
+          }
+          debugLog("provider.request_failed", {
+            attempt: index + 1,
+            retry: retryIndex + 1,
+            totalAttempts: candidates.length,
+            format: candidate.format,
+            reason: candidate.reason,
+            providerUrl,
+            status: providerError.status,
+            message: providerError.message,
+            bodyPreview: truncateText(providerError.text, 500)
+          }, "warn");
+          if (index < candidates.length - 1) {
+            shouldTryNextCandidate = true;
+            break;
+          }
+          return createAnthropicErrorResponse(providerError.status, providerError.message);
+        }
+        const contentType = upstream.headers.get("content-type") || "";
+        debugLog("provider.request_upstream_ok", {
           attempt: index + 1,
           totalAttempts: candidates.length,
           format: candidate.format,
           providerUrl,
           contentType,
-          bodyPreview: truncateText(upstreamText, 500)
-        }, "warn");
-        if (index < candidates.length - 1) {
-          continue;
-        }
-        return createAnthropicErrorResponse(502, "自定义模型供应商返回了无法解析的 JSON 响应。");
-      }
-      const detectedResponseFormat = detectOpenAIResponseFormat(upstreamJson, candidate.format);
-      debugLog("provider.response_detected", {
-        attempt: index + 1,
-        totalAttempts: candidates.length,
-        requestedFormat: candidate.format,
-        detectedFormat: detectedResponseFormat,
-        providerUrl,
-        contentType
-      });
-      try {
-        const anthropicResponse = detectedResponseFormat === OPENAI_CHAT_FORMAT ? openAIChatToAnthropic(upstreamJson) : openAIResponsesToAnthropic(upstreamJson);
-        return new Response(JSON.stringify(anthropicResponse), {
-          status: upstream.status,
-          statusText: upstream.statusText,
-          headers: {
-            "content-type": "application/json; charset=utf-8",
-            "cache-control": "no-store"
-          }
+          stream: isStreamRequest
         });
-      } catch (error) {
-        debugLog("provider.response_transform_failed", {
+        if (isStreamRequest && contentType.includes("text/event-stream") && upstream.body) {
+          let detectedStreamFormat = candidate.format;
+          let liveStream = upstream.body;
+          if (typeof upstream.body.tee === "function") {
+            const streams = upstream.body.tee();
+            const probeStream = streams[0];
+            liveStream = streams[1];
+            detectedStreamFormat = await detectOpenAIStreamFormat(probeStream, candidate.format);
+          }
+          debugLog("provider.stream_detected", {
+            attempt: index + 1,
+            totalAttempts: candidates.length,
+            requestedFormat: candidate.format,
+            detectedFormat: detectedStreamFormat,
+            providerUrl
+          });
+          const transformedStream = detectedStreamFormat === OPENAI_CHAT_FORMAT ? createAnthropicStreamFromOpenAIChat(liveStream) : createAnthropicStreamFromResponses(liveStream);
+          return createSseResponse(upstream, transformedStream);
+        }
+        const upstreamText = await upstream.text();
+        const upstreamJson = safeJsonParse(upstreamText, null);
+        if (!upstreamJson || typeof upstreamJson !== "object") {
+          debugLog("provider.request_invalid_json", {
+            attempt: index + 1,
+            totalAttempts: candidates.length,
+            format: candidate.format,
+            providerUrl,
+            contentType,
+            bodyPreview: truncateText(upstreamText, 500)
+          }, "warn");
+          if (index < candidates.length - 1) {
+            shouldTryNextCandidate = true;
+            break;
+          }
+          return createAnthropicErrorResponse(502, "自定义模型供应商返回了无法解析的 JSON 响应。");
+        }
+        const detectedResponseFormat = detectOpenAIResponseFormat(upstreamJson, candidate.format);
+        debugLog("provider.response_detected", {
           attempt: index + 1,
           totalAttempts: candidates.length,
           requestedFormat: candidate.format,
           detectedFormat: detectedResponseFormat,
           providerUrl,
-          contentType,
-          message: error && typeof error.message === "string" ? error.message : String(error || ""),
-          bodyPreview: truncateText(upstreamText, 500)
-        }, "warn");
-        if (index < candidates.length - 1) {
-          continue;
+          contentType
+        });
+        try {
+          const anthropicResponse = detectedResponseFormat === OPENAI_CHAT_FORMAT ? openAIChatToAnthropic(upstreamJson) : openAIResponsesToAnthropic(upstreamJson);
+          return new Response(JSON.stringify(anthropicResponse), {
+            status: upstream.status,
+            statusText: upstream.statusText,
+            headers: {
+              "content-type": "application/json; charset=utf-8",
+              "cache-control": "no-store"
+            }
+          });
+        } catch (error) {
+          debugLog("provider.response_transform_failed", {
+            attempt: index + 1,
+            totalAttempts: candidates.length,
+            requestedFormat: candidate.format,
+            detectedFormat: detectedResponseFormat,
+            providerUrl,
+            contentType,
+            message: error && typeof error.message === "string" ? error.message : String(error || ""),
+            bodyPreview: truncateText(upstreamText, 500)
+          }, "warn");
+          if (index < candidates.length - 1) {
+            shouldTryNextCandidate = true;
+            break;
+          }
+          throw error;
         }
-        throw error;
+      }
+      if (shouldTryNextCandidate) {
+        continue;
+      }
+      if (lastProviderError && index < candidates.length - 1) {
+        continue;
       }
     }
     return createAnthropicErrorResponse(500, "自定义供应商请求失败。");
