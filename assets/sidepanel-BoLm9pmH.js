@@ -81004,8 +81004,8 @@ const JY = a.forwardRef(({
     content: e,
     editorProps: {
       attributes: {
-        class: "w-full resize-none focus:outline-none focus:ring-0 focus:border-transparent text-text-100 overflow-y-auto text-sm prose prose-sm max-w-none",
-        style: "min-height: 24px; max-height: 50vh; outline: none;",
+        class: "w-full resize-none focus:outline-none focus:ring-0 focus:border-transparent text-text-100 overflow-y-auto text-sm prose prose-sm max-w-none whitespace-pre-wrap",
+        style: "min-height: 24px; max-height: 50vh; outline: none; white-space: pre-wrap;",
         "data-test-id": "message-input"
       },
       handleKeyDown: (e, t) => {
@@ -87505,8 +87505,10 @@ function __cpPanelDebugMaskProvider(e) {
   if (e) {
     return {
       enabled: !!e.enabled,
+      format: e.format || "",
       name: e.name || "",
-      baseUrl: e.baseUrl || "",
+      reasoningEffort: e.reasoningEffort || "",
+      hasBaseUrl: !!e.baseUrl,
       defaultModel: e.defaultModel || "",
       hasApiKey: !!e.apiKey,
       fetchedModelCount: Array.isArray(e.fetchedModels) ? e.fetchedModels.length : 0
@@ -87650,9 +87652,7 @@ function CQ({
   a.useEffect(() => {
     let n = false;
     (async () => {
-      const {
-        customProviderConfig: P
-      } = await chrome.storage.local.get("customProviderConfig");
+      const P = await __cpReadCurrentProviderConfig();
       if (n) {
         return;
       }
@@ -87945,9 +87945,7 @@ function CQ({
         model: g,
         ...y
       } = e;
-      const {
-        customProviderConfig: P
-      } = await chrome.storage.local.get("customProviderConfig");
+      const P = await __cpReadCurrentProviderConfig();
       const L = P?.enabled && P?.defaultModel ? P.defaultModel : undefined;
       const __cpReasoningEffort = P?.enabled ? __cpNormalizeReasoningEffort(P.reasoningEffort) : "none";
       let v = L || n;
@@ -88310,9 +88308,7 @@ function CQ({
     }
     let __cpContextWindow = 200000;
     try {
-      const {
-        customProviderConfig: __cpMetricsProviderConfig
-      } = await chrome.storage.local.get("customProviderConfig");
+      const __cpMetricsProviderConfig = await __cpReadCurrentProviderConfig();
       __cpContextWindow = __cpNormalizeContextWindow(__cpMetricsProviderConfig?.contextWindow);
     } catch {}
     const d = ZX.calculateMetricsFromMessages(b, wQ, __cpContextWindow);
@@ -88571,9 +88567,7 @@ function CQ({
             let b = "";
             let __cpResolvedProviderConfig = null;
             try {
-              const {
-                customProviderConfig: __cpStoredProviderConfig
-              } = await chrome.storage.local.get("customProviderConfig");
+              const __cpStoredProviderConfig = await __cpReadCurrentProviderConfig();
               __cpResolvedProviderConfig = __cpNormalizeSidepanelProviderConfig(__cpStoredProviderConfig);
             } catch (U) {}
             const __cpReasoningEffort = __cpResolvedProviderConfig?.enabled ? __cpNormalizeReasoningEffort(__cpResolvedProviderConfig.reasoningEffort) : "none";
@@ -90543,6 +90537,23 @@ function __cpNormalizeProviderModelEntries(e) {
   return Array.from(t.values());
 }
 const __cpFetchedModelsCacheKey = "customProviderFetchedModelsCache";
+async function __cpReadCurrentProviderConfig() {
+  try {
+    const e = globalThis.CustomProviderModels;
+    if (e && typeof e.readProviderStoreState === "function") {
+      const t = await e.readProviderStoreState();
+      return t?.config || t?.activeProfile || null;
+    }
+  } catch (e) {}
+  try {
+    const {
+      customProviderConfig: e
+    } = await chrome.storage.local.get("customProviderConfig");
+    return e || null;
+  } catch (e) {
+    return null;
+  }
+}
 function __cpNormalizeProviderFormat(e, t) {
   const n = String(e || "").trim().toLowerCase();
   if (n === "openai" || n === "openai_chat") {
@@ -90692,12 +90703,12 @@ function $Q(e = {}) {
     let e = false;
     const t = async () => {
       try {
-        const n = await chrome.storage.local.get(["customProviderConfig", __cpFetchedModelsCacheKey]);
+        const [n, s] = await Promise.all([__cpReadCurrentProviderConfig(), chrome.storage.local.get(__cpFetchedModelsCacheKey)]);
         if (e) {
           return;
         }
-        const s = __cpResolveSidepanelProviderConfig(n.customProviderConfig, n[__cpFetchedModelsCacheKey]);
-        __cpSetCustomProviderConfig(e => __cpAreSidepanelProviderConfigsEqual(e, s) ? e : s);
+        const r = __cpResolveSidepanelProviderConfig(n, s[__cpFetchedModelsCacheKey]);
+        __cpSetCustomProviderConfig(e => __cpAreSidepanelProviderConfigsEqual(e, r) ? e : r);
       } catch (n) {}
     };
     t();
@@ -92910,9 +92921,7 @@ function o1() {
     const [m, p] = a.useState(false);
     const d = a.useCallback(async () => {
       i(true);
-      const [e, {
-        customProviderConfig: n
-      }] = await Promise.all([y(v.ANTHROPIC_API_KEY), chrome.storage.local.get("customProviderConfig")]);
+      const [e, n] = await Promise.all([y(v.ANTHROPIC_API_KEY), __cpReadCurrentProviderConfig()]);
       const r = __cpIsCustomProviderPrivacyMode(n);
       const o = r ? n.apiKey || undefined : e || undefined;
       t(false);
@@ -94583,9 +94592,7 @@ function o1() {
   }, [Ct, jt, D, $, $e, q, Gt, _t, r.isMessageLimitDismissed, i.permissionMode, r.skipPermissionsWarningDismissed, __cpHighRiskWarningReady, Ue, r.showNotificationBanner, Q, Y, r.announcementDismissed]);
   const tn = a.useCallback(async () => {
     const e = Ze.some(e => !e.error);
-    const {
-      customProviderConfig: t
-    } = await chrome.storage.local.get("customProviderConfig");
+    const t = await __cpReadCurrentProviderConfig();
     const n = !!t?.enabled && !!t?.baseUrl && !!t?.apiKey;
     if ((o.inputText.trim() || e) && !xt && (W || Z || n)) {
       const s = o.inputText;

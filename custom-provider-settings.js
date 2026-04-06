@@ -210,6 +210,7 @@
       healthChecking: "Checking...",
       healthCheckFailure: "Health check failed.",
       healthCheckSuccess: "Health check passed. Model replied: {reply}",
+      healthCheckSuccessGeneric: "Health check passed. Model responded.",
       notesLabel: "Notes",
       notesPlaceholder: "Optional. Add endpoint notes, routing hints, or account details.",
       saveAndApply: "Save and apply",
@@ -336,6 +337,7 @@
       healthChecking: "检测中...",
       healthCheckFailure: "健康检测失败。",
       healthCheckSuccess: "健康检测通过，模型回复：{reply}",
+      healthCheckSuccessGeneric: "健康检测通过，模型已响应。",
       notesLabel: "备注",
       notesPlaceholder: "可选。填写路由说明、鉴权要求或账号备注。",
       saveAndApply: "保存并应用",
@@ -762,6 +764,19 @@
       return statusCodeMatch ? appendStatusCodeSuffix(fallbackText, statusCodeMatch[1]) : fallbackText;
     }
     return normalized;
+  }
+  function getReadableErrorMessage(error, fallback) {
+    const extracted = typeof helpers.extractErrorMessage === "function" ? helpers.extractErrorMessage(error, "") : "";
+    if (typeof extracted === "string" && extracted.trim()) {
+      return compactStatusMessage(extracted, fallback || "");
+    }
+    if (error && typeof error.message === "string" && error.message.trim()) {
+      return compactStatusMessage(error.message, fallback || "");
+    }
+    if (typeof error === "string" && error.trim()) {
+      return compactStatusMessage(error, fallback || "");
+    }
+    return compactStatusMessage("", fallback || "");
   }
   const syncModelOptions = function (select, models, selectedValue) {
     if (!select) {
@@ -2663,23 +2678,27 @@
         });
         const result = await probeProviderModel(next);
         const preview = truncateStatusText(result?.replyText || "");
+        const successMessage = preview ? strings.healthCheckSuccess.replace("{reply}", preview) : strings.healthCheckSuccessGeneric;
         debugLog("customProvider.health.success", {
           profileId: profile?.id || null,
           model: next.defaultModel,
           format: result?.format || next.format,
           requestUrl: result?.requestUrl || "",
-          replyPreview: preview
+          replyPreview: preview,
+          hasVisibleReply: !!preview
         });
-        setStatus(listStatus, "success", strings.healthCheckSuccess.replace("{reply}", preview));
+        setStatus(listStatus, "success", successMessage);
       } catch (error) {
+        const errorMessage = getReadableErrorMessage(error, strings.healthCheckFailure);
         debugLog("customProvider.health.failure", {
           profileId: profile?.id || null,
           model: next.defaultModel,
           format: next.format,
           baseUrl: next.baseUrl,
-          message: error && typeof error.message === "string" ? error.message : String(error || "")
+          message: errorMessage,
+          error
         }, "error");
-        setStatus(listStatus, "error", error && typeof error.message === "string" ? error.message : strings.healthCheckFailure);
+        setStatus(listStatus, "error", errorMessage);
       } finally {
         if (button) {
           button.disabled = false;
@@ -3277,23 +3296,27 @@
         });
         const result = await probeProviderModel(next);
         const preview = truncateStatusText(result?.replyText || "");
+        const successMessage = preview ? strings.healthCheckSuccess.replace("{reply}", preview) : strings.healthCheckSuccessGeneric;
         debugLog("customProvider.health.success", {
           model: next.defaultModel,
           format: result?.format || next.format,
           requestUrl: result?.requestUrl || "",
-          replyPreview: preview
+          replyPreview: preview,
+          hasVisibleReply: !!preview
         });
         restoreModelMeta();
-        setEditorStatus("success", strings.healthCheckSuccess.replace("{reply}", preview), strings.healthCheckSuccess);
+        setEditorStatus("success", successMessage, strings.healthCheckSuccessGeneric);
       } catch (error) {
+        const errorMessage = getReadableErrorMessage(error, strings.healthCheckFailure);
         debugLog("customProvider.health.failure", {
           model: next.defaultModel,
           format: next.format,
           baseUrl: next.baseUrl,
-          message: error && typeof error.message === "string" ? error.message : String(error || "")
+          message: errorMessage,
+          error
         }, "error");
         restoreModelMeta();
-        setEditorStatus("error", error && typeof error.message === "string" ? error.message : "", strings.healthCheckFailure);
+        setEditorStatus("error", errorMessage, strings.healthCheckFailure);
       } finally {
         setHealthCheckState(false);
       }

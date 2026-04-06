@@ -1,5 +1,7 @@
 (function () {
   const STORAGE_KEY = "customProviderConfig";
+  const PROFILES_STORAGE_KEY = "customProviderProfiles";
+  const ACTIVE_PROFILE_STORAGE_KEY = "customProviderActiveProfileId";
   const PATCH_FLAG = "__customProviderFormatAdapterPatched__";
   const NATIVE_FETCH_KEY = "__customProviderNativeFetch__";
   const OPENAI_CHAT_FORMAT = "openai_chat";
@@ -13,6 +15,10 @@
   globalThis[NATIVE_FETCH_KEY] = nativeFetch;
   let cachedConfig = null;
   let hasLoadedConfig = false;
+  function getProviderStoreHelpers() {
+    const helpers = globalThis.CustomProviderModels;
+    return helpers && typeof helpers.readProviderStoreState === "function" ? helpers : null;
+  }
   function normalizeFormat(value) {
     const format = String(value || "").trim().toLowerCase();
     if (!format || format === ANTHROPIC_FORMAT) {
@@ -57,14 +63,25 @@
       format: inferFormat(source)
     };
   }
-  async function readConfig() {
+  async function readStoredProviderConfig() {
+    const helpers = getProviderStoreHelpers();
+    if (helpers) {
+      const stored = await helpers.readProviderStoreState();
+      return stored?.config || stored?.activeProfile || null;
+    }
     if (!globalThis.chrome?.storage?.local) {
+      return null;
+    }
+    const stored = await chrome.storage.local.get(STORAGE_KEY);
+    return stored[STORAGE_KEY] || null;
+  }
+  async function readConfig() {
+    if (!globalThis.chrome?.storage?.local && !getProviderStoreHelpers()) {
       cachedConfig = normalizeConfig({});
       hasLoadedConfig = true;
       return cachedConfig;
     }
-    const stored = await chrome.storage.local.get(STORAGE_KEY);
-    cachedConfig = normalizeConfig(stored[STORAGE_KEY]);
+    cachedConfig = normalizeConfig(await readStoredProviderConfig());
     hasLoadedConfig = true;
     return cachedConfig;
   }
@@ -76,11 +93,10 @@
   }
   if (globalThis.chrome?.storage?.onChanged) {
     chrome.storage.onChanged.addListener(function (changes, areaName) {
-      if (areaName !== "local" || !changes[STORAGE_KEY]) {
+      if (areaName !== "local" || !(changes[STORAGE_KEY] || changes[PROFILES_STORAGE_KEY] || changes[ACTIVE_PROFILE_STORAGE_KEY])) {
         return;
       }
-      cachedConfig = normalizeConfig(changes[STORAGE_KEY].newValue);
-      hasLoadedConfig = true;
+      readConfig().catch(function () {});
     });
   }
   function debugLog(type, payload, level) {

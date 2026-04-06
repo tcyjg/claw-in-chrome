@@ -15,6 +15,7 @@
   const FETCHED_MODELS_CACHE_KEY = "customProviderFetchedModelsCache";
   const FETCHED_MODELS_CACHE_LIMIT = 24;
   const HEALTH_CHECK_PROMPT = "Reply with OK only.";
+  const HEALTH_CHECK_MAX_TOKENS = 64;
   function normalizeFormat(value) {
     const format = String(value || "").trim().toLowerCase();
     if (!format || format === ANTHROPIC_FORMAT) {
@@ -117,16 +118,19 @@
     }
   }
   function extractErrorMessage(payload, fallback) {
+    if (typeof payload === "string" && payload.trim()) {
+      return payload.trim();
+    }
     if (!payload || typeof payload !== "object") {
       return fallback;
     }
-    const candidates = [payload.error, payload.message, payload.detail, payload.title];
+    const candidates = [payload.error, payload.message, payload.detail, payload.title, payload.reason, payload.msg, payload.err_msg, payload.error_msg, payload.statusText, payload.responseText, payload.base_resp, payload.baseResp];
     for (const candidate of candidates) {
       if (typeof candidate === "string" && candidate.trim()) {
         return candidate.trim();
       }
       if (candidate && typeof candidate === "object") {
-        const nested = [candidate.message, candidate.error, candidate.detail, candidate.type];
+        const nested = [candidate.message, candidate.error, candidate.detail, candidate.type, candidate.reason, candidate.msg, candidate.err_msg, candidate.error_msg, candidate.status_msg, candidate.statusMessage];
         for (const item of nested) {
           if (typeof item === "string" && item.trim()) {
             return item.trim();
@@ -520,7 +524,7 @@
     if (normalizedFormat === ANTHROPIC_FORMAT) {
       return {
         model,
-        max_tokens: 8,
+        max_tokens: HEALTH_CHECK_MAX_TOKENS,
         stream: false,
         messages: [{
           role: "user",
@@ -531,7 +535,7 @@
     if (normalizedFormat === OPENAI_CHAT_FORMAT) {
       return {
         model,
-        max_tokens: 8,
+        max_tokens: HEALTH_CHECK_MAX_TOKENS,
         temperature: 0,
         stream: false,
         messages: [{
@@ -542,30 +546,105 @@
     }
     return {
       model,
-      max_output_tokens: 8,
+      max_output_tokens: HEALTH_CHECK_MAX_TOKENS,
       input: HEALTH_CHECK_PROMPT,
       stream: false
     };
   }
-  function extractTextFromContentParts(parts) {
+  function extractReadableTextFromPart(part, options) {
+    const settings = options && typeof options === "object" ? options : {};
+    const allowReasoning = settings.allowReasoning !== false;
+    if (typeof part === "string") {
+      return part.trim();
+    }
+    if (!part || typeof part !== "object") {
+      return "";
+    }
+    const type = String(part.type || "").trim().toLowerCase();
+    if (type === "tool_use" || type === "tool_result") {
+      return "";
+    }
+    if (type === "text" && typeof part.text === "string") {
+      return part.text.trim();
+    }
+    if (allowReasoning && type === "thinking" && typeof part.thinking === "string") {
+      return part.thinking.trim();
+    }
+    if (allowReasoning && type === "reasoning") {
+      if (typeof part.text === "string" && part.text.trim()) {
+        return part.text.trim();
+      }
+      if (typeof part.reasoning === "string" && part.reasoning.trim()) {
+        return part.reasoning.trim();
+      }
+    }
+    const directCandidates = [part.output_text, part.content_text, part.response_text, part.text];
+    if (allowReasoning) {
+      directCandidates.push(part.reasoning, part.thinking);
+    }
+    for (const candidate of directCandidates) {
+      if (typeof candidate === "string" && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+    if (typeof part.content === "string" && part.content.trim()) {
+      return part.content.trim();
+    }
+    const nestedCollections = [part.content, part.message?.content, part.output, part.reasoning_details, part.delta];
+    for (const nested of nestedCollections) {
+      const text = extractTextFromContentParts(nested, options);
+      if (text) {
+        return text;
+      }
+    }
+    return "";
+  }
+  function extractTextFromContentParts(parts, options) {
     if (typeof parts === "string") {
       return parts.trim();
+    }
+    if (parts && typeof parts === "object" && !Array.isArray(parts)) {
+      return extractReadableTextFromPart(parts, options);
     }
     if (!Array.isArray(parts)) {
       return "";
     }
     return parts.map(function (part) {
-      if (typeof part === "string") {
-        return part;
+      return extractReadableTextFromPart(part, options);
+    }).filter(Boolean).join(" ").trim();
+  }
+  function hasProbeResponseSignalInParts(parts) {
+    if (typeof parts === "string") {
+      return !!parts.trim();
+    }
+    if (!parts) {
+      return false;
+    }
+    if (!Array.isArray(parts)) {
+      if (typeof parts !== "object") {
+        return false;
       }
-      if (part?.type === "text" && typeof part.text === "string") {
-        return part.text;
+      const type = String(parts.type || "").trim().toLowerCase();
+      if (type === "tool_use" || type === "tool_result") {
+        return false;
       }
-      if (typeof part?.content === "string") {
-        return part.content;
+      if (typeof parts.text === "string" && parts.text.trim()) {
+        return true;
       }
-      return "";
-    }).join(" ").trim();
+      if (typeof parts.thinking === "string" && parts.thinking.trim()) {
+        return true;
+      }
+      if (typeof parts.reasoning === "string" && parts.reasoning.trim()) {
+        return true;
+      }
+      if (typeof parts.content === "string" && parts.content.trim()) {
+        return true;
+      }
+      return hasProbeResponseSignalInParts(parts.content) || hasProbeResponseSignalInParts(parts.message?.content) || hasProbeResponseSignalInParts(parts.output) || hasProbeResponseSignalInParts(parts.reasoning_details) || hasProbeResponseSignalInParts(parts.delta);
+    }
+    return parts.some(function (part) {
+      return hasProbeResponseSignalInParts(part);
+    });
   }
   function extractProbeReply(payload) {
     if (!payload || typeof payload !== "object") {
@@ -574,34 +653,58 @@
     if (typeof payload.output_text === "string" && payload.output_text.trim()) {
       return payload.output_text.trim();
     }
-    if (Array.isArray(payload.content)) {
-      const anthropicText = payload.content.map(function (item) {
-        return item?.type === "text" && typeof item.text === "string" ? item.text : "";
-      }).join(" ").trim();
-      if (anthropicText) {
-        return anthropicText;
-      }
-    }
-    if (Array.isArray(payload.output)) {
-      const responseText = payload.output.map(function (item) {
-        return extractTextFromContentParts(item?.content);
-      }).join(" ").trim();
-      if (responseText) {
-        return responseText;
-      }
-    }
-    if (Array.isArray(payload.choices)) {
-      const choiceText = payload.choices.map(function (choice) {
+    const textFirstCandidates = [
+      extractTextFromContentParts(payload.content, {
+        allowReasoning: false
+      }),
+      extractTextFromContentParts(payload.message?.content, {
+        allowReasoning: false
+      }),
+      Array.isArray(payload.output) ? payload.output.map(function (item) {
+        return extractTextFromContentParts(item?.content, {
+          allowReasoning: false
+        });
+      }).filter(Boolean).join(" ").trim() : "",
+      Array.isArray(payload.choices) ? payload.choices.map(function (choice) {
         if (typeof choice?.message?.content === "string") {
-          return choice.message.content;
+          return choice.message.content.trim();
         }
-        return extractTextFromContentParts(choice?.message?.content);
-      }).join(" ").trim();
-      if (choiceText) {
-        return choiceText;
+        return extractTextFromContentParts(choice?.message?.content, {
+          allowReasoning: false
+        });
+      }).filter(Boolean).join(" ").trim() : "",
+      typeof payload.message === "string" ? payload.message.trim() : "",
+      typeof payload.content === "string" ? payload.content.trim() : ""
+    ];
+    for (const candidate of textFirstCandidates) {
+      if (candidate) {
+        return candidate;
       }
     }
     return "";
+  }
+  function hasProbeResponseSignal(payload) {
+    if (!payload || typeof payload !== "object") {
+      return false;
+    }
+    if (typeof payload.output_text === "string" && payload.output_text.trim()) {
+      return true;
+    }
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return true;
+    }
+    if (typeof payload.content === "string" && payload.content.trim()) {
+      return true;
+    }
+    if (typeof payload.thinking === "string" && payload.thinking.trim()) {
+      return true;
+    }
+    if (typeof payload.reasoning === "string" && payload.reasoning.trim()) {
+      return true;
+    }
+    return hasProbeResponseSignalInParts(payload.content) || hasProbeResponseSignalInParts(payload.message?.content) || hasProbeResponseSignalInParts(payload.output) || hasProbeResponseSignalInParts(payload.choices?.map(function (choice) {
+      return choice?.message?.content;
+    })) || hasProbeResponseSignalInParts(payload.reasoning_details);
   }
   // 统一向兼容供应商请求 /models，并把返回值整理成下拉可选项。
   async function fetchProviderModels(config, options) {
@@ -681,14 +784,16 @@
             throw new Error(extractErrorMessage(payload, `健康检测失败（${response.status}）`));
           }
           const replyText = extractProbeReply(payload);
-          if (!replyText) {
+          const responseDetected = hasProbeResponseSignal(payload);
+          if (!replyText && !responseDetected) {
             throw new Error("模型已响应，但没有返回可读文本。");
           }
           return {
             ok: true,
             format,
             requestUrl,
-            replyText
+            replyText,
+            responseDetected
           };
         } catch (error) {
           lastError = error;
@@ -738,6 +843,7 @@
     BACKUP_KEY,
     ANTHROPIC_API_KEY_STORAGE_KEY,
     FETCHED_MODELS_CACHE_KEY,
+    extractErrorMessage,
     normalizeFormat,
     normalizeReasoningEffort,
     normalizeContextWindow,
