@@ -96,6 +96,7 @@ async function runAdapterWithUpstreamHandler(upstreamHandler, options = {}) {
   });
   const response = await sandbox.fetch(request);
   return {
+    status: response.status,
     json: await response.json(),
     upstreamCalls
   };
@@ -376,6 +377,172 @@ async function testResponsesTextWrappedToolCallIsConvertedToToolUse() {
   assert.equal(result.json.stop_reason, "tool_use");
 }
 
+async function testResponsesRuntimeFallsBackToChatWhenConfiguredEndpointFails() {
+  const result = await runAdapterWithUpstreamHandler(async ({ callIndex, call }) => {
+    if (callIndex === 0) {
+      assert.equal(call.url, "https://provider.example/v1/responses");
+      return new Response(JSON.stringify({
+        error: {
+          message: "Responses endpoint unsupported"
+        }
+      }), {
+        status: 404,
+        headers: {
+          "content-type": "application/json; charset=utf-8"
+        }
+      });
+    }
+    assert.equal(call.url, "https://provider.example/v1/chat/completions");
+    return new Response(JSON.stringify({
+      id: "chatcmpl-fallback",
+      model: "gpt-5.4",
+      choices: [
+        {
+          index: 0,
+          finish_reason: "stop",
+          message: {
+            role: "assistant",
+            content: "FOUND: 1\nSHOWING: 1\n---\nref_fallback | textbox | Search | textbox | runtime fallback"
+          }
+        }
+      ]
+    }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json; charset=utf-8"
+      }
+    });
+  }, {
+    config: {
+      format: "openai_responses",
+      defaultModel: "gpt-5.4"
+    },
+    requestBody: {
+      model: "gpt-5.4",
+      max_tokens: 128,
+      stream: false,
+      messages: [
+        {
+          role: "user",
+          content: "Find cats"
+        }
+      ]
+    }
+  });
+  assert.equal(result.upstreamCalls.length, 2, "should retry with chat completions after responses failure");
+  assert.deepEqual(result.json.content, [
+    {
+      type: "text",
+      text: "FOUND: 1\nSHOWING: 1\n---\nref_fallback | textbox | Search | textbox | runtime fallback"
+    }
+  ]);
+}
+
+async function testGpt54ChatToolCallsDropReasoningEffort() {
+  const result = await runAdapterWithUpstreamHandler(async () => new Response(JSON.stringify({
+    id: "chatcmpl-gpt54-tool",
+    model: "gpt-5.4",
+    choices: [
+      {
+        index: 0,
+        finish_reason: "tool_calls",
+        message: {
+          role: "assistant",
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: {
+                name: "browser.find",
+                arguments: "{\"query\":\"Search\"}"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }), {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8"
+    }
+  }), {
+    requestBody: {
+      model: "gpt-5.4",
+      max_tokens: 128,
+      stream: false,
+      thinking: {
+        type: "enabled",
+        budget_tokens: 8000
+      },
+      tools: [
+        {
+          name: "browser.find",
+          description: "Find element",
+          input_schema: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string"
+              }
+            },
+            required: ["query"]
+          }
+        }
+      ],
+      messages: [
+        {
+          role: "user",
+          content: "Find the search box."
+        }
+      ]
+    }
+  });
+  assert.equal("reasoning_effort" in result.upstreamCalls[0].body, false, "gpt-5.4 chat tool calls should omit reasoning_effort");
+}
+
+async function testConfiguredProviderDefaultsFillMissingAnthropicFields() {
+  const result = await runAdapterWithUpstreamHandler(async () => new Response(JSON.stringify({
+    id: "chatcmpl-config-defaults",
+    model: "gpt-5.1",
+    choices: [
+      {
+        index: 0,
+        finish_reason: "stop",
+        message: {
+          role: "assistant",
+          content: "FOUND: 1\nSHOWING: 1\n---\nref_cfg | textbox | Search | textbox | config defaults"
+        }
+      }
+    ]
+  }), {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8"
+    }
+  }), {
+    config: {
+      format: "openai_chat",
+      defaultModel: "gpt-5.1",
+      reasoningEffort: "high",
+      maxOutputTokens: 4321,
+      contextWindow: 240000
+    },
+    requestBody: {
+      model: "gpt-5.1",
+      stream: false,
+      messages: [
+        {
+          role: "user",
+          content: "Find the search box."
+        }
+      ]
+    }
+  });
+  assert.equal(result.upstreamCalls[0].body.max_tokens, 4321, "missing max_tokens should use provider default");
+  assert.equal(result.upstreamCalls[0].body.reasoning_effort, "high", "missing output_config should use provider reasoning default");
+}
+
 async function testStreamFallbackJsonToolCallContentIsConvertedToToolUse() {
   const result = await runAdapterWithUpstreamHandler(async ({ callIndex, call }) => {
     if (callIndex === 0) {
@@ -544,7 +711,7 @@ async function testLegacyFunctionCallIsConvertedToToolUse() {
   assert.equal(result.json.stop_reason, "tool_use");
 }
 
-async function testMalformedToolCallArgumentsFallbackToEmptyObject() {
+async function testMalformedToolCallArgumentsReturnErrorResponse() {
   const payload = {
     id: "chatcmpl-bad-tool-args",
     model: "gpt-5.4",
@@ -569,14 +736,9 @@ async function testMalformedToolCallArgumentsFallbackToEmptyObject() {
     ]
   };
   const result = await runAdapterWithPayload(payload);
-  assert.deepEqual(result.json.content, [
-    {
-      type: "tool_use",
-      id: "call_bad_args",
-      name: "browser.find",
-      input: {}
-    }
-  ]);
+  assert.equal(result.status, 500);
+  assert.equal(result.json.type, "error");
+  assert.match(result.json.error.message, /tool call arguments are not valid json/i);
 }
 
 async function testMessageContentObjectStillExtractsVisibleText() {
@@ -728,11 +890,14 @@ async function main() {
   await testJsonContentToolCallIsConvertedToToolUse();
   await testNestedFunctionWrapperContentIsConvertedToToolUse();
   await testResponsesTextWrappedToolCallIsConvertedToToolUse();
+  await testResponsesRuntimeFallsBackToChatWhenConfiguredEndpointFails();
+  await testGpt54ChatToolCallsDropReasoningEffort();
+  await testConfiguredProviderDefaultsFillMissingAnthropicFields();
   await testStreamFallbackJsonToolCallContentIsConvertedToToolUse();
   await testRefusalPartsRemainVisibleText();
   await testToolCallsDoNotTriggerStreamFallbackRetry();
   await testLegacyFunctionCallIsConvertedToToolUse();
-  await testMalformedToolCallArgumentsFallbackToEmptyObject();
+  await testMalformedToolCallArgumentsReturnErrorResponse();
   await testMessageContentObjectStillExtractsVisibleText();
   await testMessageOutputTextFallbackCanPromoteInlineToolCall();
   await testStreamingDeltaToolCallsAreReassembledAcrossChunks();

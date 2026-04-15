@@ -1,5 +1,15 @@
 import { r as e, j as s } from "./index-BVS4T5_D.js";
 import { u as t, M as o } from "./index-5uYI7rOK.js";
+
+// 语义锚点：pairing prompt 的 client_type 与展示名映射
+const __cpPairingClientTypeClaudeCode = "claude-code";
+const __cpPairingClientLabelClaudeCode = "Claude Code";
+const __cpPairingClientLabelDesktop = "Claude Desktop";
+
+// 语义锚点：pairing prompt 输入框提交按键
+const __cpPairingPromptSubmitKey = "Enter";
+// 语义锚点：PairingPrompt 组件只负责浏览器命名输入与回调，不直接决定 runtime message。
+// sidepanel 内联模式与独立 pairing.html 都会复用它，但真正发 pairing_confirmed / pairing_dismissed 的是调用方。
 function r({
   requestId: r,
   clientType: a,
@@ -10,21 +20,27 @@ function r({
   const c = t();
   const [i, x] = e.useState(l || "");
   const u = e.useRef(null);
+  const __cpPairingPromptInputRef = u;
   e.useEffect(() => {
-    u.current?.focus();
+    // 语义锚点：pairing 对话框打开后，默认把焦点放到浏览器命名输入框。
+    __cpPairingPromptInputRef.current?.focus();
   }, []);
   const b = e.useCallback(() => {
+    // 语义锚点：确认分支会先 trim 浏览器名称；空字符串不会触发上层 onConfirm。
     const e = i.trim();
     if (e) {
       n(r, e);
     }
   }, [i, r, n]);
+  const __cpPairingPromptConfirmHandler = b;
   const f = e.useCallback(e => {
-    if (e.key === "Enter") {
-      b();
+    if (e.key === __cpPairingPromptSubmitKey) {
+      __cpPairingPromptConfirmHandler();
     }
-  }, [b]);
-  const g = a === "claude-code" ? "Claude Code" : "Claude Desktop";
+  }, [__cpPairingPromptConfirmHandler]);
+  const __cpPairingPromptKeydownHandler = f;
+  const g = a === __cpPairingClientTypeClaudeCode ? __cpPairingClientLabelClaudeCode : __cpPairingClientLabelDesktop;
+  const __cpPairingPromptResolvedClientLabel = g;
   return s.jsxs("div", {
     className: "flex flex-col gap-4 p-5 bg-bg-100 rounded-xl border border-border-300 shadow-lg",
     children: [s.jsxs("div", {
@@ -35,7 +51,7 @@ function r({
           defaultMessage: "{clientLabel} wants to connect",
           id: "NkHG2fB0cW",
           values: {
-            clientLabel: g
+            clientLabel: __cpPairingPromptResolvedClientLabel
           }
         })
       }), s.jsx("p", {
@@ -46,11 +62,11 @@ function r({
         })
       })]
     }), s.jsx("input", {
-      ref: u,
+      ref: __cpPairingPromptInputRef,
       type: "text",
       value: i,
       onChange: e => x(e.target.value),
-      onKeyDown: f,
+      onKeyDown: __cpPairingPromptKeydownHandler,
       placeholder: c.formatMessage({
         defaultMessage: "e.g., \"Work laptop\", \"Personal Chrome\"",
         id: "HnoThnsyPP"
@@ -66,7 +82,7 @@ function r({
           id: "paBpxNk4t8"
         })
       }), s.jsx("button", {
-        onClick: b,
+        onClick: __cpPairingPromptConfirmHandler,
         disabled: !i.trim(),
         className: "px-4 py-2 text-sm rounded-lg bg-brand-100 text-oncolor-100 hover:bg-brand-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
         children: s.jsx(o, {
@@ -77,4 +93,6 @@ function r({
     })]
   });
 }
+// 语义锚点：PairingPrompt 组件导出（供 pairing 页面引用）
+const __cpPairingPromptExportedComponent = r;
 export { r as P };

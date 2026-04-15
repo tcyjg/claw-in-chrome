@@ -28,6 +28,33 @@ const vt = 5;
 const bt = 6;
 const wt = 0;
 const St = 1;
+const __cpSessionReplayRecordTypeFullSnapshot = J;
+const __cpSessionReplayRecordSourceBrowser = "browser";
+const __cpSessionReplaySegmentUploadMimeType = "application/octet-stream";
+const __cpSessionReplaySegmentMetadataMimeType = "application/json";
+const __cpSessionReplaySegmentCreationReasonInit = "init";
+const __cpSessionReplaySegmentCreationReasonViewChange = "view_change";
+const __cpSessionReplaySegmentCreationReasonStop = "stop";
+const __cpSessionReplaySegmentCreationReasonDurationLimit = "segment_duration_limit";
+const __cpSessionReplaySegmentCreationReasonBytesLimit = "segment_bytes_limit";
+const __cpSessionReplayWorkerRecordChannel = "record";
+const __cpSessionReplayTransportBuilderDependency = "sessionReplayEndpointBuilder";
+const __cpSessionReplayMissingEmitFunctionsError = "emit functions are required";
+const __cpSessionReplayEmptySegmentFlushError = "Empty segment flushed";
+const __cpSessionReplayCustomerErrorLogTitle = "Error reported to customer";
+const __cpSessionReplayMouseMoveThrottleMs = 50;
+const __cpSessionReplayScrollThrottleMs = 100;
+const __cpSessionReplayVisualViewportThrottleMs = 200;
+const __cpSessionReplayMutationFlushThrottleMs = 16;
+const __cpSessionReplayMutationFlushTimeoutMs = 100;
+const __cpSessionReplaySegmentStateIdle = 0;
+const __cpSessionReplaySegmentStateActive = 1;
+const __cpSessionReplaySegmentStateStopped = 2;
+const __cpSessionReplaySegmentJsonPrefix = "{\"records\":[";
+const __cpSessionReplaySegmentJsonDelimiter = ",";
+const __cpSessionReplaySegmentFormFieldSegment = "segment";
+const __cpSessionReplaySegmentFormFieldEvent = "event";
+const __cpSessionReplaySegmentMetricKeys = ["cssText", "serializationDuration"];
 function xt(n, o) {
   const s = n.tagName;
   const r = n.value;
@@ -528,7 +555,7 @@ function Wt(t, e) {
     t(jt(Xt(n) ? ht : dt, {
       positions: [i]
     }));
-  }, 50, {
+  }, __cpSessionReplayMouseMoveThrottleMs, {
     trailing: false
   });
   const {
@@ -636,7 +663,7 @@ function Kt(t, e, n) {
       x: i.scrollLeft,
       y: i.scrollTop
     }));
-  }, 100);
+  }, __cpSessionReplayScrollThrottleMs);
   const {
     stop: i
   } = T(n.configuration, t, "scroll", s, {
@@ -676,7 +703,7 @@ function te(t, e) {
       type: et,
       timestamp: g()
     });
-  }, 200, {
+  }, __cpSessionReplayVisualViewportThrottleMs, {
     trailing: false
   });
   const {
@@ -948,14 +975,14 @@ function ce(t, e, n, s) {
     const {
       throttled: s,
       cancel: r
-    } = N(o, 16, {
+    } = N(o, __cpSessionReplayMutationFlushThrottleMs, {
       leading: false
     });
     return {
       addMutations: t => {
         if (n.length === 0) {
           e = L(s, {
-            timeout: 100
+            timeout: __cpSessionReplayMutationFlushTimeoutMs
           });
         }
         n.push(...t);
@@ -1169,7 +1196,7 @@ function de(t) {
     lifeCycle: s
   } = t;
   if (!e || !n) {
-    throw new Error("emit functions are required");
+    throw new Error(__cpSessionReplayMissingEmitFunctionsError);
   }
   const r = n => {
     e(n);
@@ -1303,6 +1330,8 @@ function de(t) {
     shadowRootsController: i
   };
 }
+// 语义锚点：session replay segment 工厂。
+// 负责累积 records / stats，并在 flush 时补齐元数据后把压缩输出交给 transport。
 function le({
   context: t,
   creationReason: e,
@@ -1317,7 +1346,7 @@ function le({
     records_count: 0,
     has_full_snapshot: false,
     index_in_view: z(s),
-    source: "browser",
+    source: __cpSessionReplayRecordSourceBrowser,
     ...t
   };
   const i = {
@@ -1338,8 +1367,8 @@ function le({
       r.start = Math.min(r.start, t.timestamp);
       r.end = Math.max(r.end, t.timestamp);
       r.records_count += 1;
-      r.has_full_snapshot ||= t.type === J;
-      const s = n.isEmpty ? "{\"records\":[" : ",";
+      r.has_full_snapshot ||= t.type === __cpSessionReplayRecordTypeFullSnapshot;
+      const s = n.isEmpty ? __cpSessionReplaySegmentJsonPrefix : __cpSessionReplaySegmentJsonDelimiter;
       n.write(s + JSON.stringify(t), t => {
         o += t;
         e(o);
@@ -1347,7 +1376,7 @@ function le({
     },
     addStats: function (t) {
       (function (t, e) {
-        for (const n of ["cssText", "serializationDuration"]) {
+        for (const n of __cpSessionReplaySegmentMetricKeys) {
           t[n].count += e[n].count;
           t[n].max = Math.max(t[n].max, e[n].max);
           t[n].sum += e[n].sum;
@@ -1356,7 +1385,7 @@ function le({
     },
     flush: function (t) {
       if (n.isEmpty) {
-        throw new Error("Empty segment flushed");
+        throw new Error(__cpSessionReplayEmptySegmentFlushError);
       }
       n.write(`],${JSON.stringify(r).slice(1)}\n`);
       n.finish(e => {
@@ -1368,16 +1397,20 @@ function le({
 }
 const fe = U * 5;
 let pe = 60000;
+const __cpSessionReplaySegmentDurationLimitMs = fe;
+const __cpSessionReplaySegmentByteLimit = pe;
+// 语义锚点：segment transport runtime。
+// 负责按 view_change / stop / 时长上限 / 体积上限切段，并在 flush 后构造上传 payload。
 function me(t, e, n, o, s, r) {
   return function (t, e, n, o) {
     let s = {
-      status: 0,
-      nextSegmentCreationReason: "init"
+      status: __cpSessionReplaySegmentStateIdle,
+      nextSegmentCreationReason: __cpSessionReplaySegmentCreationReasonInit
     };
     const {
       unsubscribe: r
     } = t.subscribe(2, () => {
-      a("view_change");
+      a(__cpSessionReplaySegmentCreationReasonViewChange);
     });
     const {
       unsubscribe: i
@@ -1385,12 +1418,12 @@ function me(t, e, n, o, s, r) {
       a(t.reason);
     });
     function a(t) {
-      if (s.status === 1) {
+      if (s.status === __cpSessionReplaySegmentStateActive) {
         s.segment.flush((e, o, s) => {
           const r = function (t, e, n, o) {
             const s = new FormData();
-            s.append("segment", new Blob([t], {
-              type: "application/octet-stream"
+            s.append(__cpSessionReplaySegmentFormFieldSegment, new Blob([t], {
+              type: __cpSessionReplaySegmentUploadMimeType
             }), `${e.session.id}-${e.start}`);
             const r = {
               raw_segment_size: o,
@@ -1398,8 +1431,8 @@ function me(t, e, n, o, s, r) {
               ...e
             };
             const i = JSON.stringify(r);
-            s.append("event", new Blob([i], {
-              type: "application/json"
+            s.append(__cpSessionReplaySegmentFormFieldEvent, new Blob([i], {
+              type: __cpSessionReplaySegmentMetadataMimeType
             }));
             return {
               data: s,
@@ -1419,47 +1452,47 @@ function me(t, e, n, o, s, r) {
         });
         B(s.expirationTimeoutId);
       }
-      s = t !== "stop" ? {
-        status: 0,
+      s = t !== __cpSessionReplaySegmentCreationReasonStop ? {
+        status: __cpSessionReplaySegmentStateIdle,
         nextSegmentCreationReason: t
       } : {
-        status: 2
+        status: __cpSessionReplaySegmentStateStopped
       };
     }
     return {
       addRecord: t => {
-        if (s.status !== 2) {
-          if (s.status === 0) {
+        if (s.status !== __cpSessionReplaySegmentStateStopped) {
+          if (s.status === __cpSessionReplaySegmentStateIdle) {
             const t = e();
             if (!t) {
               return;
             }
             s = {
-              status: 1,
+              status: __cpSessionReplaySegmentStateActive,
               segment: le({
                 encoder: o,
                 context: t,
                 creationReason: s.nextSegmentCreationReason
               }),
               expirationTimeoutId: G(() => {
-                a("segment_duration_limit");
-              }, fe)
+                a(__cpSessionReplaySegmentCreationReasonDurationLimit);
+              }, __cpSessionReplaySegmentDurationLimitMs)
             };
           }
           s.segment.addRecord(t, t => {
-            if (t > pe) {
-              a("segment_bytes_limit");
+            if (t > __cpSessionReplaySegmentByteLimit) {
+              a(__cpSessionReplaySegmentCreationReasonBytesLimit);
             }
           });
         }
       },
       addStats: t => {
-        if (s.status === 1) {
+        if (s.status === __cpSessionReplaySegmentStateActive) {
           s.segment.addStats(t);
         }
       },
       stop: () => {
-        a("stop");
+        a(__cpSessionReplaySegmentCreationReasonStop);
         r();
         i();
       }
@@ -1483,19 +1516,22 @@ function me(t, e, n, o, s, r) {
     };
   }(e.applicationId, n, o), s, r);
 }
+// 语义锚点：startRecording 顶层运行时。
+// 根据环境选择 worker 录制或主线程 transport，并把 stop 钩子统一收口到一个返回对象。
 function he(t, e, n, o, s, r, i) {
   const a = [];
-  const c = i || j([e.sessionReplayEndpointBuilder], e => {
+  const c = i || j([e[__cpSessionReplayTransportBuilderDependency]], e => {
     t.notify(14, {
       error: e
     });
-    q("Error reported to customer", {
+    q(__cpSessionReplayCustomerErrorLogTitle, {
       "error.message": e.message
     });
   }, pe);
   let u;
   let d;
   if (W()) {
+    // worker 模式：只负责把 record 通过固定 channel 发给 worker，transport 统计由 worker 侧处理。
     ({
       addRecord: u
     } = function (t) {
@@ -1503,12 +1539,13 @@ function he(t, e, n, o, s, r, i) {
       return {
         addRecord: n => {
           const o = t.findView();
-          e.send("record", n, o.id);
+          e.send(__cpSessionReplayWorkerRecordChannel, n, o.id);
         }
       };
     }(o));
     d = R;
   } else {
+    // 主线程模式：本地切 segment、flush、上传，并把 network metrics 订阅一起挂进 stop 链。
     const i = me(t, e, n, o, c, s);
     u = i.addRecord;
     d = i.addStats;
@@ -1578,4 +1615,8 @@ function he(t, e, n, o, s, r, i) {
     }
   };
 }
+const __cpSessionReplayRecorderRuntime = de;
+const __cpSessionReplaySegmentFactory = le;
+const __cpSessionReplaySegmentTransportRuntime = me;
+const __cpSessionReplayStartRecordingExport = he;
 export { he as startRecording };

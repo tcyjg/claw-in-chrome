@@ -8,20 +8,23 @@
   const LATEST_JSON_URL = `${RELEASES_BASE_URL}/latest/download/latest.json`;
   const LATEST_RELEASE_URL = `${RELEASES_BASE_URL}/latest`;
   const SOURCE = "github_release_json";
+  const CONTRACT_GITHUB_UPDATE = globalThis.__CP_CONTRACT__?.githubUpdate;
+  const CONTRACT_STORAGE_KEYS = CONTRACT_GITHUB_UPDATE?.STORAGE_KEYS || {};
+  const CONTRACT_MESSAGE_TYPES = CONTRACT_GITHUB_UPDATE?.MESSAGE_TYPES || {};
   const STORAGE_KEYS = {
-    INFO: "githubUpdateInfo",
-    DISMISSED_VERSION: "githubUpdateDismissedVersion",
-    AUTO_CHECK_ENABLED: "githubUpdateAutoCheckEnabled",
-    SEEN_VERSION: "githubUpdateSeenVersion",
-    PREVIOUS_VERSION: "githubUpdatePreviousVersion",
-    UPDATE_AVAILABLE: "updateAvailable",
-    VERSION_INFO: "chrome_ext_version_info"
+    INFO: CONTRACT_STORAGE_KEYS.INFO || "githubUpdateInfo",
+    DISMISSED_VERSION: CONTRACT_STORAGE_KEYS.DISMISSED_VERSION || "githubUpdateDismissedVersion",
+    AUTO_CHECK_ENABLED: CONTRACT_STORAGE_KEYS.AUTO_CHECK_ENABLED || "githubUpdateAutoCheckEnabled",
+    SEEN_VERSION: CONTRACT_STORAGE_KEYS.SEEN_VERSION || "githubUpdateSeenVersion",
+    PREVIOUS_VERSION: CONTRACT_STORAGE_KEYS.PREVIOUS_VERSION || "githubUpdatePreviousVersion",
+    UPDATE_AVAILABLE: CONTRACT_STORAGE_KEYS.UPDATE_AVAILABLE || "updateAvailable",
+    VERSION_INFO: CONTRACT_STORAGE_KEYS.VERSION_INFO || "chrome_ext_version_info"
   };
   const MESSAGE_TYPES = {
-    CHECK_NOW: "CP_GITHUB_UPDATE_CHECK_NOW",
-    DISMISS: "CP_GITHUB_UPDATE_DISMISS"
+    CHECK_NOW: CONTRACT_MESSAGE_TYPES.CHECK_NOW || "CP_GITHUB_UPDATE_CHECK_NOW",
+    DISMISS: CONTRACT_MESSAGE_TYPES.DISMISS || "CP_GITHUB_UPDATE_DISMISS"
   };
-  const ALARM_NAME = "cp_github_update_check";
+  const ALARM_NAME = CONTRACT_GITHUB_UPDATE?.ALARM_NAME || "cp_github_update_check";
   const CHECK_INTERVAL_MINUTES = 24 * 60;
   function normalizeVersion(value) {
     return String(value || "").trim().replace(/^v/i, "");

@@ -9,6 +9,10 @@
   const NATIVE_FETCH_KEY = "__customProviderNativeFetch__";
   const OPENAI_CHAT_FORMAT = "openai_chat";
   const OPENAI_RESPONSES_FORMAT = "openai_responses";
+  const DEFAULT_CONTEXT_WINDOW = 200000;
+  const DEFAULT_MAX_OUTPUT_TOKENS = 10000;
+  const MIN_CONTEXT_WINDOW = 20000;
+  const REASONING_EFFORT_VALUES = ["none", "low", "medium", "high", "max"];
   const THINK_OPEN_TAG = "<think>";
   const THINK_CLOSE_TAG = "</think>";
   const TOOL_CALL_OPEN_TAG = "<tool_call>";
@@ -106,6 +110,36 @@
     }
     return ANTHROPIC_FORMAT;
   }
+  function normalizeReasoningEffort(value) {
+    const helpers = getProviderStoreHelpers();
+    if (helpers && typeof helpers.normalizeReasoningEffort === "function") {
+      return helpers.normalizeReasoningEffort(value);
+    }
+    const effort = String(value || "").trim().toLowerCase();
+    return REASONING_EFFORT_VALUES.includes(effort) ? effort : "medium";
+  }
+  function normalizeContextWindow(value) {
+    const helpers = getProviderStoreHelpers();
+    if (helpers && typeof helpers.normalizeContextWindow === "function") {
+      return helpers.normalizeContextWindow(value);
+    }
+    const numeric = Number(String(value ?? "").trim());
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return DEFAULT_CONTEXT_WINDOW;
+    }
+    return Math.max(MIN_CONTEXT_WINDOW, Math.round(numeric));
+  }
+  function normalizeMaxOutputTokens(value, fallbackValue) {
+    const helpers = getProviderStoreHelpers();
+    if (helpers && typeof helpers.normalizeMaxOutputTokens === "function") {
+      return helpers.normalizeMaxOutputTokens(value, fallbackValue);
+    }
+    const numeric = Number(String(value ?? "").trim());
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return fallbackValue || DEFAULT_MAX_OUTPUT_TOKENS;
+    }
+    return Math.max(1, Math.round(numeric));
+  }
   function normalizeConfig(raw) {
     const source = raw && typeof raw === "object" ? raw : {};
     return {
@@ -115,8 +149,38 @@
       defaultModel: String(source.defaultModel || "").trim(),
       fastModel: String(source.fastModel || source.small_fast_model || "").trim(),
       format: inferFormat(source),
+      reasoningEffort: normalizeReasoningEffort(source.reasoningEffort),
+      maxOutputTokens: normalizeMaxOutputTokens(source.maxOutputTokens),
+      contextWindow: normalizeContextWindow(source.contextWindow),
       promptCacheKey: String(source.promptCacheKey || source.prompt_cache_key || source.id || source.profileId || "").trim()
     };
+  }
+  function shouldApplyConfiguredReasoningEffort(model, effort) {
+    const normalizedEffort = normalizeReasoningEffort(effort);
+    if (!normalizedEffort || normalizedEffort === "none") {
+      return false;
+    }
+    const normalizedModel = normalizeModelName(model);
+    return normalizedModel.startsWith("gpt-5") || isOpenAIOSeries(normalizedModel);
+  }
+  function applyConfiguredAnthropicDefaults(body, config) {
+    if (!body || typeof body !== "object") {
+      return body;
+    }
+    const nextBody = {
+      ...body
+    };
+    const hasExplicitMaxTokens = Number.isFinite(Number(body?.max_tokens)) && Number(body.max_tokens) > 0;
+    if (!hasExplicitMaxTokens && Number.isFinite(Number(config?.maxOutputTokens)) && Number(config.maxOutputTokens) > 0) {
+      nextBody.max_tokens = Number(config.maxOutputTokens);
+    }
+    const hasExplicitReasoningConfig = body?.output_config && typeof body.output_config === "object" && String(body.output_config.effort || "").trim() || body?.thinking && typeof body.thinking === "object";
+    if (!hasExplicitReasoningConfig && shouldApplyConfiguredReasoningEffort(nextBody.model || config?.defaultModel, config?.reasoningEffort)) {
+      nextBody.output_config = {
+        effort: normalizeReasoningEffort(config.reasoningEffort)
+      };
+    }
+    return nextBody;
   }
   async function readStoredProviderConfig() {
     const helpers = getProviderStoreHelpers();
@@ -208,6 +272,24 @@
   function isOpenAIOSeries(model) {
     const name = String(model || "").trim().toLowerCase();
     return name.length > 1 && name.startsWith("o") && /\d/.test(name[1]);
+  }
+  function normalizeModelName(model) {
+    let name = String(model || "").trim().toLowerCase();
+    if (name.includes("/")) {
+      const parts = name.split("/");
+      name = parts[parts.length - 1] || "";
+    }
+    return name.replace(/[_.]/g, "");
+  }
+  function isLikelyChatLikeModel(model) {
+    const name = normalizeModelName(model);
+    return name.startsWith("gpt") || name.startsWith("chatgpt") || isOpenAIOSeries(name);
+  }
+  function shouldDropChatReasoningEffort(model, tools) {
+    if (!Array.isArray(tools) || !tools.length) {
+      return false;
+    }
+    return normalizeModelName(model).startsWith("gpt-54");
   }
   function resolveReasoningEffort(body) {
     const explicit = body?.output_config?.effort;
@@ -356,9 +438,18 @@
     }
     return safeJsonParse(source, null);
   }
-  function normalizeToolInputValue(value) {
-    const parsed = safeJsonParseDeep(value, value, 3);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  function normalizeToolInputValue(value, strict) {
+    const parsed = safeJsonParseDeep(value, null, 3);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed;
+    }
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return value;
+    }
+    if (strict) {
+      throw new Error("OpenAI tool call arguments are not valid JSON.");
+    }
+    return null;
   }
   function stringifyContent(value) {
     if (typeof value === "string") {
@@ -740,6 +831,7 @@
     };
   }
   function parseInlineToolCallPayload(rawPayload, fallbackId) {
+    const shouldStrictlyParseArguments = !!rawPayload && typeof rawPayload === "object";
     let parsed = rawPayload && typeof rawPayload === "object" ? safeJsonParseDeep(rawPayload, rawPayload, 3) : parseLooseJsonObject(rawPayload);
     if (!parsed || typeof parsed !== "object") {
       return null;
@@ -763,11 +855,15 @@
     } else if (parsed.input && typeof parsed.input === "object" && !Array.isArray(parsed.input)) {
       input = parsed.input;
     } else if (parsed.arguments !== undefined) {
-      input = normalizeToolInputValue(parsed.arguments);
-    } else if (parsed.arguments && typeof parsed.arguments === "object" && !Array.isArray(parsed.arguments)) {
-      input = parsed.arguments;
+      input = normalizeToolInputValue(parsed.arguments, shouldStrictlyParseArguments);
+      if (!input) {
+        return null;
+      }
     } else if (parsed?.function?.arguments !== undefined) {
-      input = normalizeToolInputValue(parsed.function.arguments);
+      input = normalizeToolInputValue(parsed.function.arguments, shouldStrictlyParseArguments);
+      if (!input) {
+        return null;
+      }
     }
     return {
       id: String(parsed.id || parsed.tool_call_id || parsed.call_id || parsed?.function?.id || fallbackId || "tool_call"),
@@ -920,10 +1016,21 @@
   }
   function buildProviderRequestCandidates(config, body) {
     const requestedFormat = normalizeFormat(config?.format);
-    return [{
+    const candidates = [{
       format: requestedFormat,
       reason: "configured_format"
     }];
+    const baseUrl = String(config?.baseUrl || "").trim().toLowerCase();
+    const model = String(body?.model || config?.defaultModel || "").trim().toLowerCase();
+    const name = String(config?.name || "").trim().toLowerCase();
+    const looksChatLike = isLikelyChatLikeModel(model) || name.includes("openai") || name.includes("gpt");
+    if (requestedFormat === OPENAI_RESPONSES_FORMAT && looksChatLike && !/\/responses$/i.test(baseUrl)) {
+      candidates.push({
+        format: OPENAI_CHAT_FORMAT,
+        reason: "chat_compatible_fallback"
+      });
+    }
+    return candidates;
   }
   function buildAnthropicUsageFromChat(usage) {
     const inputTokens = Number(usage?.prompt_tokens || 0);
@@ -1239,6 +1346,9 @@
     }
     if (tools.length) {
       result.tools = tools;
+    }
+    if (result.reasoning_effort && shouldDropChatReasoningEffort(result.model, tools)) {
+      delete result.reasoning_effort;
     }
     const toolChoice = mapToolChoiceToChat(body?.tool_choice);
     if (tools.length && toolChoice !== undefined) {
@@ -2808,7 +2918,8 @@
   async function forwardProviderRequest(request, config) {
     await assertHttpProviderAllowed(config);
     const bodyText = await request.clone().text();
-    const body = safeJsonParse(bodyText, null);
+    const parsedBody = safeJsonParse(bodyText, null);
+    const body = applyConfiguredAnthropicDefaults(parsedBody, config);
     if (!body || typeof body !== "object") {
       return createAnthropicErrorResponse(400, "自定义供应商只支持 JSON 请求体。");
     }

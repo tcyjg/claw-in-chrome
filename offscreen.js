@@ -3,16 +3,31 @@
 
 console.log("[Offscreen] Document loaded and ready");
 
+// 语义锚点：offscreen document <-> service worker 的消息协议（type / 字段名 / 心跳间隔）
+const __cpOffscreenContractMessages = globalThis.__CP_CONTRACT__?.messages || {};
+const __cpOffscreenContract = globalThis.__CP_CONTRACT__?.offscreen || {};
+const __cpOffscreenKeepaliveMessageType = __cpOffscreenContractMessages.SW_KEEPALIVE || "SW_KEEPALIVE";
+const __cpOffscreenKeepaliveIntervalMs = __cpOffscreenContract.KEEPALIVE_INTERVAL_MS || 20000;
+const __cpOffscreenMessageTypePlaySound = __cpOffscreenContractMessages.OFFSCREEN_PLAY_SOUND || "OFFSCREEN_PLAY_SOUND";
+const __cpOffscreenMessageTypeGenerateGif = __cpOffscreenContractMessages.GENERATE_GIF || "GENERATE_GIF";
+const __cpOffscreenMessageTypeRevokeBlobUrl = __cpOffscreenContractMessages.REVOKE_BLOB_URL || "REVOKE_BLOB_URL";
+const __cpOffscreenAudioFieldUrl = __cpOffscreenContract.AUDIO_FIELD_URL || "audioUrl";
+const __cpOffscreenAudioFieldVolume = __cpOffscreenContract.AUDIO_FIELD_VOLUME || "volume";
+const __cpOffscreenDefaultVolume = __cpOffscreenContract.DEFAULT_VOLUME || 0.5;
+const __cpOffscreenGifFieldFrames = __cpOffscreenContract.GIF_FIELD_FRAMES || "frames";
+const __cpOffscreenGifFieldOptions = __cpOffscreenContract.GIF_FIELD_OPTIONS || "options";
+const __cpOffscreenGifFieldBlobUrl = __cpOffscreenContract.GIF_FIELD_BLOB_URL || "blobUrl";
+
 // SW keepalive — offscreen docs aren't subject to MV3's 30s idle kill. A
 // message every 20s resets the SW's idle timer, keeping the bridge WS
 // setInterval ping running under background throttle/freeze.
 setInterval(() => {
   chrome.runtime.sendMessage({
-    type: "SW_KEEPALIVE"
+    type: __cpOffscreenKeepaliveMessageType
   }).catch(() => {
     // SW restarting — self-heals via setupOffscreenDocument at next startup
   });
-}, 20000);
+}, __cpOffscreenKeepaliveIntervalMs);
 
 // AudioContext is lazy — the doc is persistent for keepalive, so avoid
 // allocating audio resources until a sound actually needs to play.
@@ -472,10 +487,10 @@ async function generateGif(frames, options = {}) {
   });
 }
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === "OFFSCREEN_PLAY_SOUND") {
+  if (message.type === __cpOffscreenMessageTypePlaySound) {
     console.log("[Offscreen] Received OFFSCREEN_PLAY_SOUND message");
-    const volume = message.volume || 0.5;
-    playAudioWithWebAudioAPI(message.audioUrl, volume).then(() => {
+    const volume = message[__cpOffscreenAudioFieldVolume] || __cpOffscreenDefaultVolume;
+    playAudioWithWebAudioAPI(message[__cpOffscreenAudioFieldUrl], volume).then(() => {
       console.log("[Offscreen] Sound played successfully via Web Audio API");
       sendResponse({
         success: true
@@ -491,18 +506,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Return true to indicate async response
     return true;
   }
-  if (message.type === "REVOKE_BLOB_URL") {
-    URL.revokeObjectURL(message.blobUrl);
+  if (message.type === __cpOffscreenMessageTypeRevokeBlobUrl) {
+    URL.revokeObjectURL(message[__cpOffscreenGifFieldBlobUrl]);
     sendResponse({
       success: true
     });
     return true;
   }
-  if (message.type === "GENERATE_GIF") {
+  if (message.type === __cpOffscreenMessageTypeGenerateGif) {
     console.log("[Offscreen] Received GENERATE_GIF message");
-    console.log(`[Offscreen] Frames: ${message.frames?.length}`);
-    console.log(`[Offscreen] Options:`, message.options);
-    generateGif(message.frames, message.options).then(result => {
+    console.log(`[Offscreen] Frames: ${message[__cpOffscreenGifFieldFrames]?.length}`);
+    console.log(`[Offscreen] Options:`, message[__cpOffscreenGifFieldOptions]);
+    generateGif(message[__cpOffscreenGifFieldFrames], message[__cpOffscreenGifFieldOptions]).then(result => {
       console.log("[Offscreen] GIF generated successfully");
       sendResponse({
         success: true,

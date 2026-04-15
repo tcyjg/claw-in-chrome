@@ -2561,6 +2561,20 @@ var B = (t => {
   t.QUICK_MODE_TIP_DISMISSED = "quickModeTipDismissed";
   return t;
 })(B || {});
+// 语义锚点：PermissionManager/后台任务/更新链路会频繁引用的 storage key（集中定义在 B 枚举中）。
+// 注意：这些常量仅用于提高可读性与便于全局搜索，不改变运行行为。
+const __cpPermissionManagerStorageKeysEnum = B;
+const __cpPermissionManagerStorageKeyPermissionStorage = B.PERMISSION_STORAGE;
+const __cpPermissionManagerStorageKeyLastPermissionModePreference = B.LAST_PERMISSION_MODE_PREFERENCE;
+const __cpPermissionManagerStorageKeyMcpConnected = B.MCP_CONNECTED;
+const __cpPermissionManagerStorageKeyMcpTabGroupId = B.MCP_TAB_GROUP_ID;
+const __cpPermissionManagerStorageKeyPendingScheduledTask = B.PENDING_SCHEDULED_TASK;
+const __cpPermissionManagerStorageKeyTargetTabId = B.TARGET_TAB_ID;
+const __cpPermissionManagerStorageKeyUpdateAvailable = B.UPDATE_AVAILABLE;
+const __cpPermissionManagerStorageKeySavedPrompts = B.SAVED_PROMPTS;
+const __cpPermissionManagerStorageKeySavedPromptCategories = B.SAVED_PROMPT_CATEGORIES;
+const __cpPermissionManagerStorageKeyScheduledTaskLogs = B.SCHEDULED_TASK_LOGS;
+const __cpPermissionManagerStorageKeyScheduledTaskStats = B.SCHEDULED_TASK_STATS;
 async function $(t, e) {
   const n = await chrome.storage.local.get(t);
   if (n[t] !== undefined) {
@@ -20843,6 +20857,20 @@ var wy = (t => {
   t.ALWAYS = "always";
   return t;
 })(wy || {});
+const __cpPermissionScopeTypesEnum = vy;
+const __cpPermissionScopeTypeNetloc = "netloc";
+const __cpPermissionScopeTypeDomainTransition = vy.DOMAIN_TRANSITION;
+const __cpPermissionScopeTypePlanApproval = vy.PLAN_APPROVAL;
+const __cpPermissionActionEnum = by;
+const __cpPermissionActionAllow = by.ALLOW;
+const __cpPermissionActionDeny = by.DENY;
+const __cpPermissionDurationEnum = wy;
+const __cpPermissionDurationOnce = wy.ONCE;
+const __cpPermissionDurationAlways = wy.ALWAYS;
+const __cpPermissionStoragePayloadPermissionsField = "permissions";
+const __cpPermissionCacheKeyNoTool = "no-tool";
+const __cpPermissionModeFollowPlan = "follow_a_plan";
+const __cpPermissionModeSkipAllChecks = "skip_all_permission_checks";
 function Ey(t) {
   return {
     [vy.NAVIGATE]: "navigate to",
@@ -20859,9 +20887,9 @@ function Ey(t) {
   }[t];
 }
 // 语义锚点：这两个 permissionMode 都会放宽逐步确认策略。
-const Sy = ["follow_a_plan", "skip_all_permission_checks"];
+const Sy = [__cpPermissionModeFollowPlan, __cpPermissionModeSkipAllChecks];
 // 默认计划审批模式。
-const Ty = "follow_a_plan";
+const Ty = __cpPermissionModeFollowPlan;
 const __cpPermissionModesWithRelaxedPrompts = Sy;
 const __cpDefaultPlanApprovalMode = Ty;
 // 权限核心类：负责站点权限、域间跳转权限、turn-approved domains、一次性/永久授权存储。
@@ -20881,6 +20909,7 @@ class xy {
   setForcePrompt(t) {
     this.forcePrompt = t;
   }
+  // 语义锚点：follow_a_plan 批准后的域名白名单入口。
   setTurnApprovedDomains(t) {
     this.turnApprovedDomains.clear();
     for (const e of t) {
@@ -20900,6 +20929,7 @@ class xy {
   getTurnApprovedDomains() {
     return Array.from(this.turnApprovedDomains);
   }
+  // 语义锚点：把 URL / host / IPv6 / host:port 统一归一化为可比较的域名字符串。
   normalizeDomain(t) {
     try {
       if (t.startsWith("http://") || t.startsWith("https://")) {
@@ -20926,6 +20956,7 @@ class xy {
   }
   async checkPermission(t, e, n) {
     const r = new URL(t).hostname;
+    // turn-approved domain 生效时，计划外域名会被直接挡住，不再进入弹窗分支。
     if (r && this.turnApprovedDomains.size > 0 && !this.isTurnApprovedDomain(r)) {
       return {
         allowed: false,
@@ -20961,7 +20992,7 @@ class xy {
         await this.savePermissions();
       }
       return {
-        allowed: s.action === by.ALLOW,
+        allowed: s.action === __cpPermissionActionAllow,
         permission: s
       };
     } else {
@@ -20973,6 +21004,7 @@ class xy {
     }
   }
   async checkDomainTransition(t, e) {
+    // 域间跳转权限和普通 netloc 权限是两套规则，这里处理 from -> to 的审批命中。
     if (this.bypassLocalhostForMcp) {
       const n = this.isLocalhostDomain(t);
       const r = this.isLocalhostDomain(e);
@@ -21002,8 +21034,8 @@ class xy {
       };
     }
     await this.loadPermissions();
-    const n = this.permissions.filter(n => n.scope.type === "domain_transition" && n.scope.fromDomain === t && n.scope.toDomain === e);
-    const r = n.find(t => t.action === by.DENY);
+    const n = this.permissions.filter(n => n.scope.type === __cpPermissionScopeTypeDomainTransition && n.scope.fromDomain === t && n.scope.toDomain === e);
+    const r = n.find(t => t.action === __cpPermissionActionDeny);
     if (r) {
       r.lastUsed = Date.now();
       await this.savePermissions();
@@ -21012,7 +21044,7 @@ class xy {
         permission: r
       };
     }
-    const i = n.find(t => t.action === by.ALLOW);
+    const i = n.find(t => t.action === __cpPermissionActionAllow);
     if (i) {
       i.lastUsed = Date.now();
       await this.savePermissions();
@@ -21032,10 +21064,10 @@ class xy {
     const r = {
       id: crypto.randomUUID(),
       scope: t,
-      action: by.ALLOW,
+      action: __cpPermissionActionAllow,
       duration: e,
       createdAt: Date.now(),
-      toolUseId: e === wy.ONCE ? n : undefined
+      toolUseId: e === __cpPermissionDurationOnce ? n : undefined
     };
     this.permissions.push(r);
     await this.savePermissions();
@@ -21043,17 +21075,17 @@ class xy {
   }
   async denyPermission(t, e) {
     // DENY 只有 ALWAYS 会落库；ONCE 只是本次请求拒绝，不留下持久规则。
-    if (e === wy.ONCE) {
+    if (e === __cpPermissionDurationOnce) {
       return;
     }
     const n = {
       id: crypto.randomUUID(),
       scope: t,
-      action: by.DENY,
+      action: __cpPermissionActionDeny,
       duration: e,
       createdAt: Date.now()
     };
-    if (e === wy.ALWAYS) {
+    if (e === __cpPermissionDurationAlways) {
       this.permissions.push(n);
     }
     await this.savePermissions();
@@ -21071,7 +21103,7 @@ class xy {
   }
   async clearOncePermissions() {
     const t = this.permissions.length;
-    this.permissions = this.permissions.filter(t => t.duration !== wy.ONCE);
+    this.permissions = this.permissions.filter(t => t.duration !== __cpPermissionDurationOnce);
     if (t - this.permissions.length > 0) {
       await this.savePermissions();
       this.clearCache();
@@ -21079,33 +21111,35 @@ class xy {
   }
   getPermissionsByScope() {
     return {
-      netloc: this.permissions.filter(t => t.scope.type === "netloc"),
-      domain_transition: this.permissions.filter(t => t.scope.type === "domain_transition")
+      netloc: this.permissions.filter(t => t.scope.type === __cpPermissionScopeTypeNetloc),
+      domain_transition: this.permissions.filter(t => t.scope.type === __cpPermissionScopeTypeDomainTransition)
     };
   }
   getAllPermissions() {
     return [...this.permissions];
   }
+  // 语义锚点：普通站点权限命中链，先查一次性 toolUseId，再查持久 ALLOW/DENY 规则。
   findApplicablePermission(t, e) {
-    const n = `${t}:${e || "no-tool"}`;
+    const n = `${t}:${e || __cpPermissionCacheKeyNoTool}`;
     if (this.cache.has(n)) {
       return this.cache.get(n);
     }
     if (e) {
-      const n = this.permissions.find(n => n.duration === wy.ONCE && n.toolUseId === e && n.scope.type === "netloc" && n.scope.netloc && this.matchesNetloc(t, n.scope.netloc));
+      const n = this.permissions.find(n => n.duration === __cpPermissionDurationOnce && n.toolUseId === e && n.scope.type === __cpPermissionScopeTypeNetloc && n.scope.netloc && this.matchesNetloc(t, n.scope.netloc));
       if (n) {
         this.revokePermission(n.id);
         return n;
       }
     }
     this.permissions.forEach(t => {});
-    const r = this.permissions.filter(e => e.scope.type === "netloc" && e.duration !== wy.ONCE && e.scope.netloc && this.matchesNetloc(t, e.scope.netloc));
-    const i = r.find(t => t.action === by.DENY);
+    // once 权限先按 toolUseId 命中；持久权限再按 netloc / 通配域规则命中。
+    const r = this.permissions.filter(e => e.scope.type === __cpPermissionScopeTypeNetloc && e.duration !== __cpPermissionDurationOnce && e.scope.netloc && this.matchesNetloc(t, e.scope.netloc));
+    const i = r.find(t => t.action === __cpPermissionActionDeny);
     if (i) {
       this.cache.set(n, i);
       return i;
     }
-    const s = r.find(t => t.action === by.ALLOW);
+    const s = r.find(t => t.action === __cpPermissionActionAllow);
     if (s) {
       this.cache.set(n, s);
       return s;
@@ -21116,8 +21150,9 @@ class xy {
   async hasSiteWidePermissions(t) {
     // sidepanel 切到 allow_for_site 时，会调用这里判断当前 hostname 是否已被永久放行。
     await this.loadPermissions();
-    return this.permissions.some(e => e.scope.type === "netloc" && e.duration === wy.ALWAYS && e.action === by.ALLOW && e.scope.netloc && this.matchesNetloc(t, e.scope.netloc));
+    return this.permissions.some(e => e.scope.type === __cpPermissionScopeTypeNetloc && e.duration === __cpPermissionDurationAlways && e.action === __cpPermissionActionAllow && e.scope.netloc && this.matchesNetloc(t, e.scope.netloc));
   }
+  // 语义锚点：netloc 匹配支持 *.example.com 通配和 www. 归一化比较。
   matchesNetloc(t, e) {
     if (e.startsWith("*.")) {
       const n = e.slice(2);
@@ -21126,24 +21161,27 @@ class xy {
     return t === e || t.replace(/^www\./, "") === e.replace(/^www\./, "");
   }
   async loadPermissions() {
+    // 语义锚点：从本地存储回填整包权限规则的入口。
     try {
-      const t = await $(B.PERMISSION_STORAGE);
+      const t = await $(__cpPermissionStoragePersistenceKey);
       if (t) {
-        this.permissions = t.permissions || [];
+        this.permissions = t[__cpPermissionStoragePayloadPermissionsField] || [];
       }
     } catch (t) {}
   }
   async savePermissions() {
+    // 语义锚点：把当前权限规则整体写回本地存储的入口。
     try {
       const t = {
-        permissions: this.permissions
+        [__cpPermissionStoragePayloadPermissionsField]: this.permissions
       };
-      await j(B.PERMISSION_STORAGE, t);
+      await j(__cpPermissionStoragePersistenceKey, t);
     } catch (t) {}
   }
   setupStorageListener() {
+    // 语义锚点：本地存储变化后，重新加载权限并清空匹配缓存。
     chrome.storage.onChanged.addListener((t, e) => {
-      if (e === "local" && t[B.PERMISSION_STORAGE]) {
+      if (e === "local" && t[__cpPermissionStoragePersistenceKey]) {
         this.loadPermissions();
         this.clearCache();
       }
@@ -21152,10 +21190,12 @@ class xy {
   clearCache() {
     this.cache.clear();
   }
+  // 语义锚点：MCP localhost 旁路判定使用的 hostname 归类入口。
   isLocalhostDomain(t) {
     const e = t.toLowerCase();
     return e === "localhost" || e === "127.0.0.1" || e === "[::1]" || e === "::1" || e.startsWith("127.") || e.endsWith(".localhost");
   }
+  // 语义锚点：只有 http/https 的 localhost URL 才会命中 MCP localhost 旁路。
   isLocalhostUrl(t) {
     try {
       const e = new URL(t);
@@ -21166,5 +21206,26 @@ class xy {
     }
   }
 }
+// 语义锚点：权限持久化落库使用的 storage key。
+const __cpPermissionStoragePersistenceKey = B.PERMISSION_STORAGE;
 const __cpPermissionManagerClass = xy;
+// 语义锚点：PermissionManager 关键方法入口（便于从混淆 bundle 中快速定位权限链路）。
+const __cpPermissionManagerCheckPermission = xy.prototype.checkPermission;
+const __cpPermissionManagerCheckDomainTransition = xy.prototype.checkDomainTransition;
+const __cpPermissionManagerGrantPermission = xy.prototype.grantPermission;
+const __cpPermissionManagerDenyPermission = xy.prototype.denyPermission;
+const __cpPermissionManagerRevokePermission = xy.prototype.revokePermission;
+const __cpPermissionManagerClearAllPermissions = xy.prototype.clearAllPermissions;
+const __cpPermissionManagerClearOncePermissions = xy.prototype.clearOncePermissions;
+const __cpPermissionManagerLoadPermissions = xy.prototype.loadPermissions;
+const __cpPermissionManagerSavePermissions = xy.prototype.savePermissions;
+const __cpPermissionManagerSetupStorageListener = xy.prototype.setupStorageListener;
+const __cpPermissionManagerSetTurnApprovedDomains = xy.prototype.setTurnApprovedDomains;
+const __cpPermissionManagerNormalizeDomain = xy.prototype.normalizeDomain;
+const __cpPermissionManagerGetPermissionsByScope = xy.prototype.getPermissionsByScope;
+const __cpPermissionManagerFindApplicablePermission = xy.prototype.findApplicablePermission;
+const __cpPermissionManagerHasSiteWidePermissions = xy.prototype.hasSiteWidePermissions;
+const __cpPermissionManagerMatchesNetloc = xy.prototype.matchesNetloc;
+const __cpPermissionManagerIsLocalhostDomain = xy.prototype.isLocalhostDomain;
+const __cpPermissionManagerIsLocalhostUrl = xy.prototype.isLocalhostUrl;
 export { ke as A, de as B, Pe as C, Ty as D, X as E, L as F, nt as G, Oe as H, ot as I, ut as J, at as K, it as L, ct as M, Ae as N, Ce as O, wy as P, Re as Q, rt as R, B as S, vy as T, Sy as U, et as W, d as _, C as a, l as b, yy as c, Ey as d, K as e, gy as f, $ as g, M as h, D as i, E as j, Ya as k, se as l, xy as m, Co as n, _y as o, Ie as p, p as q, F as r, j as s, U as t, N as u, _ as v, my as w, pe as x, he as y, xe as z };

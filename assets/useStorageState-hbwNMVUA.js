@@ -37,6 +37,8 @@ function S(e) {
     }
   }
 }
+// 语义锚点：将 hostname 归一化为 cookie domain（用于跨子域共享/清理 cookie）。
+const __cpNormalizeCookieDomain = S;
 const R = e.createContext(null);
 const A = "Thu, 01 Jan 1970 00:00:01 GMT";
 function T(e) {
@@ -51,6 +53,10 @@ function T(e) {
   }
   return r;
 }
+// 语义锚点：枚举需要清理的父域 cookie domain（配合 __cpNormalizeCookieDomain 使用）。
+const __cpEnumerateParentCookieDomains = T;
+// 语义锚点：删除 cookie 时用的过期时间（expires=...）。
+const __cpCookieRemovalExpiresAt = A;
 const O = {
   get: e => {
     const t = document.cookie.split(";");
@@ -86,6 +92,11 @@ const O = {
     document.cookie = t.join("; ");
   }
 };
+// 语义锚点：cookie / domain / storage 桥。
+// sidepanel 与 options 里凡是需要跨子域读写 cookie 或清理旧 cookie 的逻辑，都要回到这里看。
+const __cpCookieDomainStorageBridge = O;
+// 语义锚点：sidepanel 上层依赖的 cookie 读写适配器入口。
+const __cpCookieStorageAdapter = O;
 function C(e, t) {
   if (typeof e == "function") {
     return e(t);
@@ -5878,6 +5889,13 @@ if (!M) {
   }).call(D.exports);
 }
 var $ = D.exports;
+// 语义锚点：跨 tab localStorage 同步协议。
+// key 统一以 "LSS-" 为前缀；payload 形如 { value, tabId, timestamp }。
+const __cpCrossTabLocalStorageSyncKeyPrefix = "LSS-";
+const __cpCrossTabLocalStorageEventName = "storage";
+const __cpCrossTabLocalStoragePayloadFieldValue = "value";
+const __cpCrossTabLocalStoragePayloadFieldTabId = "tabId";
+const __cpCrossTabLocalStoragePayloadFieldTimestamp = "timestamp";
 function U(t, n, r = true) {
   return function ({
     key: t,
@@ -5934,9 +5952,9 @@ function U(t, n, r = true) {
         const n = typeof e == "function" ? e(t) : e;
         try {
           const e = {
-            value: n,
-            tabId: s.current,
-            timestamp: Date.now()
+            [__cpCrossTabLocalStoragePayloadFieldValue]: n,
+            [__cpCrossTabLocalStoragePayloadFieldTabId]: s.current,
+            [__cpCrossTabLocalStoragePayloadFieldTimestamp]: Date.now()
           };
           const t = JSON.stringify(e);
           window.localStorage.setItem(i, t);
@@ -5973,11 +5991,11 @@ function U(t, n, r = true) {
         if (e.key === i && e.newValue && !u.current) {
           try {
             const t = JSON.parse(e.newValue);
-            if (t && typeof t == "object" && "value" in t && "tabId" in t) {
-              if (t.tabId === s.current) {
+            if (t && typeof t == "object" && __cpCrossTabLocalStoragePayloadFieldValue in t && __cpCrossTabLocalStoragePayloadFieldTabId in t) {
+              if (t[__cpCrossTabLocalStoragePayloadFieldTabId] === s.current) {
                 return;
               }
-              d(e => $.isEqual(e, t.value) ? e : t.value);
+              d(e => $.isEqual(e, t[__cpCrossTabLocalStoragePayloadFieldValue]) ? e : t[__cpCrossTabLocalStoragePayloadFieldValue]);
             } else {
               const t = r(e.newValue);
               d(e => $.isEqual(e, t) ? e : t);
@@ -5987,6 +6005,7 @@ function U(t, n, r = true) {
           }
         }
       };
+      // 语义锚点：跨 tab 的 localStorage 同步桥，sidepanel 如果依赖本地持久态会经过这里。
       window.addEventListener("storage", e);
       return () => window.removeEventListener("storage", e);
     }, [i, a, r]);
@@ -5999,9 +6018,13 @@ function U(t, n, r = true) {
     sync: r
   });
 }
+// 语义锚点：跨 tab localStorage 同步 hook 的入口。
+const __cpCrossTabLocalStorageSyncHook = U;
 function V(e, t, n = true) {
   return U(e, t, n);
 }
+// 语义锚点：对外暴露的 localStorage state hook（对 U 的轻量封装）。
+const __cpUseLocalStorageStateHook = V;
 const B = "https://claude.com/form/anthropic-content-reporting";
 const q = "incognito";
 var H = (e => {
@@ -6046,6 +6069,8 @@ var H = (e => {
   e.STARLING_PROMPT_BRANCH = "starling-prompt-branch";
   return e;
 })(H || {});
+// 语义锚点：cookie / localStorage / analytics session 等 Web 侧 key 常量入口。
+const __cpWebStorageKeyEnum = H;
 const W = "(prefers-color-scheme: dark)";
 const K = e.createContext(undefined);
 function G({
@@ -37918,16 +37943,20 @@ function kA(e) {
   }
   return [t.toLowerCase()];
 }
+// 语义锚点：options / sidepanel 鉴权探测时使用的 profile query。
+// 如果 customProvider 已接管鉴权，这里会直接返回 null，不再走 `/api/oauth/profile`。
+const __cpOptionsAccountCustomProviderStorageKey = "customProviderConfig";
+const __cpOptionsAccountProfileApiPath = "/api/oauth/profile";
 const jA = (e = true) => nr({
   queryKey: ["userProfile"],
   queryFn: async () => {
     const {
       customProviderConfig: t
-    } = await chrome.storage.local.get("customProviderConfig");
+    } = await chrome.storage.local.get(__cpOptionsAccountCustomProviderStorageKey);
     if (__cpIsOptionsCustomProviderPrivacyMode(t)) {
       return null;
     }
-    return g.fetch("/api/oauth/profile");
+    return g.fetch(__cpOptionsAccountProfileApiPath);
   },
   enabled: e,
   staleTime: 300000,
@@ -37943,6 +37972,8 @@ function __cpIsOptionsCustomProviderPrivacyMode(e) {
   return !!e?.enabled && !!e?.baseUrl && !!e?.apiKey;
 }
 const _A = e.createContext(null);
+// 语义锚点：options 页账号态 bootstrap。
+// 本地 anthropic key 与 customProviderConfig 的组合可用性，会在这个 provider 组件里统一初始化和监听。
 const xA = ({
   children: t
 }) => {
@@ -52712,10 +52743,14 @@ const _U = e.forwardRef(({
     })]
   });
 });
+// 语义锚点：模型配置（展示名/别名等）在 storage 里的 key。
+const __cpModelsConfigStorageKey = globalThis.__CP_CONTRACT__?.models?.CONFIG_STORAGE_KEY || "chrome_ext_models";
 function xU() {
-  return _("chrome_ext_models", xUDefaultModelConfig);
+  return _(__cpModelsConfigStorageKey, xUDefaultModelConfig);
 }
+const __cpModelsConfigReader = xU;
 const xUDefaultModelConfig = {};
+const __cpModelsConfigDefaultValue = xUDefaultModelConfig;
 function EU(e, t) {
   if (t.options) {
     for (const o of t.options) {
@@ -52741,6 +52776,8 @@ function EU(e, t) {
     return e;
   }
 }
+// 语义锚点：从模型配置（chrome_ext_models）中解析模型展示名（必要时回退到正则猜测）。
+const __cpResolveModelDisplayName = EU;
 function SU({
   value: t,
   onChange: r,

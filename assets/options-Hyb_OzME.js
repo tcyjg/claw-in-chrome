@@ -388,28 +388,62 @@ const cpOptionsNavStrings = String(navigator.language || "").toLowerCase().start
   session: "Session management",
   prompt: "Prompt overrides"
 };
+// ------------------------------
+// options.html hash 路由协议（页面内导航）
+//
+// 1) 一级 Tab：
+//   - #permissions | #prompts | #options | #internal
+//   - 未命中时回退到 permissions
+//
+// 2) options 二级子视图：
+//   - #options?provider=true      -> provider 子视图（自定义供应商 / 模型）
+//   - #options?provider=session   -> session 子视图
+//   - #options?provider=prompt    -> prompt 子视图
+//
+// 3) 其它 query：
+//   - requestMicrophone=true / returnTabId=<number> 用于引导麦克风权限弹窗与回跳
+// ------------------------------
+const __cpOptionsSettingsTabTokenPermissions = "permissions";
+const __cpOptionsSettingsTabTokenPrompts = "prompts";
+const __cpOptionsSettingsTabTokenOptions = "options";
+const __cpOptionsSettingsTabTokenInternal = "internal";
+const __cpOptionsSettingsTabTokens = [__cpOptionsSettingsTabTokenPermissions, __cpOptionsSettingsTabTokenPrompts, __cpOptionsSettingsTabTokenOptions, __cpOptionsSettingsTabTokenInternal];
+const __cpOptionsSettingsTabDefaultToken = __cpOptionsSettingsTabTokenPermissions;
+const __cpOptionsSettingsTabWhitelist = __cpOptionsSettingsTabTokens;
+const __cpOptionsHashParamProviderKey = "provider";
+const __cpOptionsHashParamRequestMicrophoneKey = "requestMicrophone";
+const __cpOptionsHashParamReturnTabIdKey = "returnTabId";
+const __cpOptionsHashParamTruthyValue = "true";
+const __cpOptionsHashParamProviderAliasSessions = "sessions";
+const __cpOptionsHashParamProviderAliasPrompts = "prompts";
+const __cpOptionsHashChangeEventName = "hashchange";
 function cpGetSettingsTabFromHash(e) {
   const t = String(e || window.location.hash || "").replace(/^#/, "").split("?")[0];
-  return ["permissions", "prompts", "options", "internal"].includes(t) ? t : "permissions";
+  return __cpOptionsSettingsTabWhitelist.includes(t) ? t : __cpOptionsSettingsTabDefaultToken;
 }
 function cpGetOptionsSubviewFromHash(e) {
   const t = String(e || window.location.hash || "").replace(/^#/, "");
   const a = t.split("?");
-  if ((a[0] || "permissions").toLowerCase() !== "options") {
+  if ((a[0] || __cpOptionsSettingsTabDefaultToken).toLowerCase() !== __cpOptionsSettingsTabTokenOptions) {
     return "";
   }
-  const s = String(new URLSearchParams(a[1] || "").get("provider") || "").trim().toLowerCase();
-  if (s === "true" || s === "provider") {
-    return "provider";
+  const s = String(new URLSearchParams(a[1] || "").get(__cpOptionsHashParamProviderKey) || "").trim().toLowerCase();
+  if (s === __cpOptionsHashParamTruthyValue || s === __cpOptionsProviderSubviewToken) {
+    return __cpOptionsProviderSubviewToken;
   }
-  if (s === "session" || s === "sessions") {
-    return "session";
+  if (s === __cpOptionsSessionSubviewToken || s === __cpOptionsHashParamProviderAliasSessions) {
+    return __cpOptionsSessionSubviewToken;
   }
-  if (s === "prompt" || s === "prompts") {
-    return "prompt";
+  if (s === __cpOptionsPromptSubviewToken || s === __cpOptionsHashParamProviderAliasPrompts) {
+    return __cpOptionsPromptSubviewToken;
   }
   return "";
 }
+const __cpOptionsSettingsTabHashParser = cpGetSettingsTabFromHash;
+const __cpOptionsSubviewHashParser = cpGetOptionsSubviewFromHash;
+const __cpOptionsProviderSubviewToken = "provider";
+const __cpOptionsSessionSubviewToken = "session";
+const __cpOptionsPromptSubviewToken = "prompt";
 function cpGithubSendRuntimeMessage(e) {
   return new Promise(t => {
     try {
@@ -433,6 +467,7 @@ function cpGithubSendRuntimeMessage(e) {
     }
   });
 }
+const __cpOptionsGithubRuntimeMessageBridge = cpGithubSendRuntimeMessage;
 const cpGithubUpdateSection = () => {
   const e = globalThis.__CP_GITHUB_UPDATE_SHARED__;
   if (!e || !globalThis.chrome?.runtime?.id) {
@@ -448,6 +483,11 @@ const cpGithubUpdateSection = () => {
     openDownloadPage: c,
     createDefaultUpdateInfo: m
   } = e;
+  const __cpOptionsGithubUpdateStorageKeys = a;
+  const __cpOptionsGithubUpdateMessageTypes = r;
+  const __cpOptionsGithubUpdateInfoStorageKey = a.INFO;
+  const __cpOptionsGithubUpdateAutoCheckStorageKey = a.AUTO_CHECK_ENABLED;
+  const __cpOptionsGithubUpdateCheckNowAction = r.CHECK_NOW;
   const h = cpGithubUpdateStrings;
   const p = String(navigator.language || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
   const u = globalThis.chrome?.runtime?.getManifest?.().version || "";
@@ -541,6 +581,10 @@ const cpGithubUpdateSection = () => {
       }));
     }
   };
+  const __cpOptionsGithubAutoCheckToggle = w;
+  const __cpOptionsGithubManualCheckHandler = k;
+  const __cpOptionsGithubOpenReleaseHandler = M;
+  const __cpOptionsGithubOpenDownloadHandler = N;
   const C = {
     success: {
       color: "#166534",
@@ -777,22 +821,27 @@ const J = ({
   const o = a === "session";
   const l = a === "prompt";
   const d = !i && !o && !l;
+  const __cpOptionsProviderMountAnchorId = "cp-options-provider-anchor";
+  const __cpOptionsSessionMountAnchorId = "cp-options-session-anchor";
+  const __cpOptionsPromptMountAnchorId = "cp-options-prompt-anchor";
+  const __cpOptionsDebugMountAnchorId = "cp-options-debug-anchor";
+  // custom-provider-settings.js / options-debug-logger.js 会依赖这些 DOM 挂载点做跨脚本注入。
   return n.jsxs("div", {
     className: "space-y-6",
     children: [n.jsx("div", {
-      id: "cp-options-provider-anchor",
+      id: __cpOptionsProviderMountAnchorId,
       hidden: !i
     }), n.jsx("div", {
-      id: "cp-options-session-anchor",
+      id: __cpOptionsSessionMountAnchorId,
       hidden: !o
     }), n.jsx("div", {
-      id: "cp-options-prompt-anchor",
+      id: __cpOptionsPromptMountAnchorId,
       hidden: !l
     }), n.jsxs("div", {
       className: "space-y-6",
       hidden: !d,
       children: [n.jsx(cpGithubUpdateSection, {}), n.jsx("div", {
-        id: "cp-options-debug-anchor",
+        id: __cpOptionsDebugMountAnchorId,
         className: "space-y-6"
       })]
     })]
@@ -1046,6 +1095,7 @@ const te = () => {
   }));
   const [o, l] = s.useState(true);
   const [d, c] = m(T.NOTIFICATIONS_ENABLED, undefined);
+  const __cpOptionsNotificationsEnabledStorageKey = T.NOTIFICATIONS_ENABLED;
   const {
     analytics: p
   } = h();
@@ -1351,6 +1401,11 @@ function oe({
   initialTab: d = "my-shortcuts"
 } = {}) {
   const c = e();
+  // prompts/shortcuts 页面内部的二级 tab（通过 hash query: ?tab=browse 切换）
+  const __cpOptionsShortcutsHashParamTabKey = "tab";
+  const __cpOptionsShortcutsTabTokenBrowse = "browse";
+  const __cpOptionsShortcutsTabTokenMyShortcuts = "my-shortcuts";
+  const __cpOptionsSavedPromptsApi = Z;
   const [m, h] = s.useState([]);
   const [p, u] = s.useState(null);
   const [g, b] = s.useState(false);
@@ -1361,13 +1416,13 @@ function oe({
     const e = window.location.hash;
     const t = e.indexOf("?");
     if (t !== -1) {
-      if (new URLSearchParams(e.substring(t)).get("tab") === "browse") {
-        return "browse";
+      if (new URLSearchParams(e.substring(t)).get(__cpOptionsShortcutsHashParamTabKey) === __cpOptionsShortcutsTabTokenBrowse) {
+        return __cpOptionsShortcutsTabTokenBrowse;
       } else {
-        return "my-shortcuts";
+        return __cpOptionsShortcutsTabTokenMyShortcuts;
       }
     }
-    return "my-shortcuts";
+    return __cpOptionsShortcutsTabTokenMyShortcuts;
   })());
   const j = i !== undefined ? i : p;
   const w = o || u;
@@ -1425,9 +1480,11 @@ function oe({
     }
   };
   s.useEffect(() => {
+    const __cpOptionsPermissionManagerContract = globalThis.__CP_CONTRACT__?.permissionManager || {};
+    const __cpOptionsPendingScheduledTaskStorageKey = __cpOptionsPermissionManagerContract.PENDING_SCHEDULED_TASK_STORAGE_KEY || T.PENDING_SCHEDULED_TASK;
     C();
     (async () => {
-      const e = await O(T.PENDING_SCHEDULED_TASK);
+      const e = await O(__cpOptionsPendingScheduledTaskStorageKey);
       if (e) {
         const t = new Date().toISOString().split("T")[0];
         const a = e.specificDate;
@@ -1440,7 +1497,7 @@ function oe({
           specificDate: a && a >= t ? a : undefined
         });
         M(true);
-        await I(T.PENDING_SCHEDULED_TASK);
+        await I(__cpOptionsPendingScheduledTaskStorageKey);
       }
     })();
   }, [w, M]);
@@ -1966,12 +2023,31 @@ function ce() {
   const {
     isAuthenticated: a
   } = E();
+  // internal tab（调试/内部）在当前构建中被关闭：保持为 false 以避免暴露额外入口
   const i = false;
   const [o, l] = s.useState("");
   const [d, c] = s.useState(() => cpGetSettingsTabFromHash(window.location.hash));
   const [m, p] = s.useState(false);
   const [u, x] = s.useState();
   const [providerSubview, setProviderSubview] = s.useState(() => cpGetOptionsSubviewFromHash(window.location.hash));
+  // custom-provider-settings.js 会通过这些 DOM id 做跨脚本挂载/导航联动（属于隐式契约）
+  const __cpOptionsProviderNavItemId = "cp-options-provider-nav-item";
+  const __cpOptionsSessionNavItemId = "cp-options-session-nav-item";
+  const __cpOptionsPromptNavItemId = "cp-options-prompt-nav-item";
+  const __cpOptionsNavHrefPermissions = "/settings/permissions";
+  const __cpOptionsNavHrefPrompts = "/settings/prompts";
+  const __cpOptionsNavHrefOptions = "/settings/options";
+  const __cpOptionsNavHrefOptionsProvider = "/settings/options?provider=true";
+  const __cpOptionsNavHrefOptionsSession = "/settings/options?provider=session";
+  const __cpOptionsNavHrefOptionsPrompt = "/settings/options?provider=prompt";
+  // options 子视图 hash 片段（用于写入 window.location.hash）
+  const __cpOptionsHashFragmentOptions = "options";
+  const __cpOptionsHashFragmentOptionsProvider = "options?provider=true";
+  const __cpOptionsHashFragmentOptionsSession = "options?provider=session";
+  const __cpOptionsHashFragmentOptionsPrompt = "options?provider=prompt";
+  const __cpOptionsCustomProviderContract = globalThis.__CP_CONTRACT__?.customProvider || {};
+  const __cpOptionsAccountBootstrapStorageKey = __cpOptionsCustomProviderContract.ANTHROPIC_API_KEY_STORAGE_KEY || T.ANTHROPIC_API_KEY;
+  const __cpOptionsAccountBootstrapReader = O;
   s.useEffect(() => {
     __cpOptionsDebugLog("options.page.mount", {
       hash: window.location.hash,
@@ -1984,7 +2060,7 @@ function ce() {
     };
   }, []);
   s.useEffect(() => {
-    O(T.ANTHROPIC_API_KEY).then(e => {
+    __cpOptionsAccountBootstrapReader(__cpOptionsAccountBootstrapStorageKey).then(e => {
       __cpOptionsDebugLog("options.page.apiKey.loaded", {
         hasApiKey: !!e
       });
@@ -1998,43 +2074,45 @@ function ce() {
     });
   }, []);
   s.useEffect(() => {
+    // 语义锚点：options 页 hash -> 状态同步入口（一级 tab、二级子视图、麦克风回跳）
     const e = () => {
       const e = window.location.hash.slice(1);
       const [t, a] = e.split("?");
-      const s = ["permissions", "prompts", "options", "internal"].includes(t) ? t : "permissions";
+      const s = __cpOptionsSettingsTabWhitelist.includes(t) ? t : __cpOptionsSettingsTabDefaultToken;
       let n;
       let r = false;
       let i = "";
       if (a) {
         const e = new URLSearchParams(a);
-        r = e.get("requestMicrophone") === "true";
-        const t = e.get("returnTabId");
+        r = e.get(__cpOptionsHashParamRequestMicrophoneKey) === __cpOptionsHashParamTruthyValue;
+        const t = e.get(__cpOptionsHashParamReturnTabIdKey);
         if (t) {
           n = parseInt(t, 10);
         }
-        const s = String(e.get("provider") || "").trim().toLowerCase();
-        if (s === "true" || s === "provider") {
-          i = "provider";
-        } else if (s === "session" || s === "sessions") {
-          i = "session";
-        } else if (s === "prompt" || s === "prompts") {
-          i = "prompt";
+        const s = String(e.get(__cpOptionsHashParamProviderKey) || "").trim().toLowerCase();
+        if (s === __cpOptionsHashParamTruthyValue || s === __cpOptionsProviderSubviewToken) {
+          i = __cpOptionsProviderSubviewToken;
+        } else if (s === __cpOptionsSessionSubviewToken || s === __cpOptionsHashParamProviderAliasSessions) {
+          i = __cpOptionsSessionSubviewToken;
+        } else if (s === __cpOptionsPromptSubviewToken || s === __cpOptionsHashParamProviderAliasPrompts) {
+          i = __cpOptionsPromptSubviewToken;
         }
       }
       return {
         tab: s,
-        optionsSubview: s === "options" ? i : "",
+        optionsSubview: s === __cpOptionsSettingsTabTokenOptions ? i : "",
         requestMicrophone: r,
         returnTabId: n
       };
     };
+    const __cpOptionsHashStateReader = e;
     const t = () => {
       const {
         tab: t,
         optionsSubview: r,
         requestMicrophone: a,
         returnTabId: s
-      } = e();
+      } = __cpOptionsHashStateReader();
       __cpOptionsDebugLog("options.page.hash.parsed", {
         hash: window.location.hash,
         tab: t,
@@ -2054,7 +2132,7 @@ function ce() {
       optionsSubview: r,
       requestMicrophone: s,
       returnTabId: n
-    } = e();
+    } = __cpOptionsHashStateReader();
     __cpOptionsDebugLog("options.page.hash.initial", {
       hash: window.location.hash,
       tab: a,
@@ -2068,11 +2146,12 @@ function ce() {
       p(true);
       x(n);
     }
-    window.addEventListener("hashchange", t);
+    window.addEventListener(__cpOptionsHashChangeEventName, t);
     return () => {
-      window.removeEventListener("hashchange", t);
+      window.removeEventListener(__cpOptionsHashChangeEventName, t);
     };
   }, []);
+  // 语义锚点：一级 tab 点击后，直接写回 window.location.hash 并清空 options 子视图。
   const f = e => {
     __cpOptionsDebugLog("options.page.tab.click", {
       nextTab: e,
@@ -2082,16 +2161,19 @@ function ce() {
     setProviderSubview("");
     window.location.hash = e;
   };
+  const __cpOptionsSettingsTabHashWriter = f;
+  // 语义锚点：options 二级子视图切换（provider/session/prompt -> hash 持久化）
   const g = e => {
     __cpOptionsDebugLog("options.page.subview.click", {
       nextSubview: e,
       previousSubview: providerSubview,
       previousTab: d
     });
-    c("options");
+    c(__cpOptionsSettingsTabTokenOptions);
     setProviderSubview(e);
-    window.location.hash = e === "provider" ? "options?provider=true" : e === "session" ? "options?provider=session" : e === "prompt" ? "options?provider=prompt" : "options";
+    window.location.hash = e === __cpOptionsProviderSubviewToken ? __cpOptionsHashFragmentOptionsProvider : e === __cpOptionsSessionSubviewToken ? __cpOptionsHashFragmentOptionsSession : e === __cpOptionsPromptSubviewToken ? __cpOptionsHashFragmentOptionsPrompt : __cpOptionsHashFragmentOptions;
   };
+  const __cpOptionsSubviewHashWriter = g;
   s.useEffect(() => {
     __cpOptionsDebugLog("options.page.state.tab", {
       activeTab: d,
@@ -2135,9 +2217,9 @@ function ce() {
             className: "flex gap-1 md:flex-col mb-0",
             children: [n.jsx("li", {
               children: n.jsx(ne, {
-                href: "/settings/permissions",
-                isActive: d === "permissions",
-                onClick: () => f("permissions"),
+                href: __cpOptionsNavHrefPermissions,
+                isActive: d === __cpOptionsSettingsTabTokenPermissions,
+                onClick: () => f(__cpOptionsSettingsTabTokenPermissions),
                 children: n.jsx(t, {
                   defaultMessage: "Permissions",
                   id: "SFuk1vRI4X"
@@ -2145,9 +2227,9 @@ function ce() {
               })
             }), n.jsx("li", {
               children: n.jsx(ne, {
-                href: "/settings/prompts",
-                isActive: d === "prompts",
-                onClick: () => f("prompts"),
+                href: __cpOptionsNavHrefPrompts,
+                isActive: d === __cpOptionsSettingsTabTokenPrompts,
+                onClick: () => f(__cpOptionsSettingsTabTokenPrompts),
                 children: n.jsx(t, {
                   defaultMessage: "Shortcuts",
                   id: "7FAwwkYilD"
@@ -2155,44 +2237,44 @@ function ce() {
               })
             }), n.jsx("li", {
               children: n.jsx(ne, {
-                href: "/settings/options",
-                isActive: d === "options" && providerSubview === "",
-                onClick: () => f("options"),
+                href: __cpOptionsNavHrefOptions,
+                isActive: d === __cpOptionsSettingsTabTokenOptions && providerSubview === "",
+                onClick: () => f(__cpOptionsSettingsTabTokenOptions),
                 children: n.jsx(t, {
                   defaultMessage: "Options",
                   id: "NDV5MqT9ww"
                 })
               })
             }), n.jsx("li", {
-              id: "cp-options-provider-nav-item",
+              id: __cpOptionsProviderNavItemId,
               children: n.jsx(ne, {
-                href: "/settings/options?provider=true",
-                isActive: d === "options" && providerSubview === "provider",
-                onClick: () => g("provider"),
+                href: __cpOptionsNavHrefOptionsProvider,
+                isActive: d === __cpOptionsSettingsTabTokenOptions && providerSubview === __cpOptionsProviderSubviewToken,
+                onClick: () => g(__cpOptionsProviderSubviewToken),
                 children: cpOptionsNavStrings.provider
               })
             }), n.jsx("li", {
-              id: "cp-options-session-nav-item",
+              id: __cpOptionsSessionNavItemId,
               children: n.jsx(ne, {
-                href: "/settings/options?provider=session",
-                isActive: d === "options" && providerSubview === "session",
-                onClick: () => g("session"),
+                href: __cpOptionsNavHrefOptionsSession,
+                isActive: d === __cpOptionsSettingsTabTokenOptions && providerSubview === __cpOptionsSessionSubviewToken,
+                onClick: () => g(__cpOptionsSessionSubviewToken),
                 children: cpOptionsNavStrings.session
               })
             }), n.jsx("li", {
-              id: "cp-options-prompt-nav-item",
+              id: __cpOptionsPromptNavItemId,
               children: n.jsx(ne, {
-                href: "/settings/options?provider=prompt",
-                isActive: d === "options" && providerSubview === "prompt",
-                onClick: () => g("prompt"),
+                href: __cpOptionsNavHrefOptionsPrompt,
+                isActive: d === __cpOptionsSettingsTabTokenOptions && providerSubview === __cpOptionsPromptSubviewToken,
+                onClick: () => g(__cpOptionsPromptSubviewToken),
                 children: cpOptionsNavStrings.prompt
               })
             }), i]
           })]
         }), n.jsxs("div", {
-          children: [d === "permissions" && n.jsx(te, {}), d === "prompts" && n.jsx(oe, {}), d === "options" && n.jsx(J, {
+          children: [d === __cpOptionsSettingsTabTokenPermissions && n.jsx(te, {}), d === __cpOptionsSettingsTabTokenPrompts && n.jsx(oe, {}), d === __cpOptionsSettingsTabTokenOptions && n.jsx(J, {
             subview: providerSubview
-          }), d === "internal" && i]
+          }), d === __cpOptionsSettingsTabTokenInternal && i]
         })]
       })]
     }), n.jsx(K, {
@@ -2313,17 +2395,21 @@ function ce() {
     command: "analytics"
   }]
 }].flatMap(e => e.prompts);
+const __cpOptionsBootstrapRuntimeChain = [R, _, L];
+const __cpOptionsRootComponent = ce;
+const __cpOptionsAppShell = H;
 R();
 _();
 L();
+const __cpOptionsRootMountElementId = "root";
 __cpOptionsDebugLog("options.bootstrap.before-render", {
-  hasRoot: !!document.getElementById("root"),
+  hasRoot: !!document.getElementById(__cpOptionsRootMountElementId),
   hash: window.location.hash
 });
-a.createRoot(document.getElementById("root")).render(n.jsx(r.StrictMode, {
-  children: n.jsx(H, {
+a.createRoot(document.getElementById(__cpOptionsRootMountElementId)).render(n.jsx(r.StrictMode, {
+  children: n.jsx(__cpOptionsAppShell, {
     pageName: "Options",
-    children: n.jsx(ce, {})
+    children: n.jsx(__cpOptionsRootComponent, {})
   })
 }));
 __cpOptionsDebugLog("options.bootstrap.after-render", {

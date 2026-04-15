@@ -1,5 +1,5 @@
-const SAVED_PROMPTS_KEY = "savedPrompts";
-const WORKFLOW_STORAGE_KEY = "claw_site_workflows_v1";
+const SAVED_PROMPTS_KEY = globalThis.__CP_CONTRACT__?.permissionManager?.SAVED_PROMPTS_STORAGE_KEY || "savedPrompts";
+const WORKFLOW_STORAGE_KEY = globalThis.__CP_CONTRACT__?.workflows?.STORAGE_KEY || "claw_site_workflows_v1";
 const SYNC_SOURCE = "shortcut";
 
 let syncScheduled = false;

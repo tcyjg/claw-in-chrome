@@ -1,9 +1,12 @@
 import "./claw-contract.js";
+import "./mcp-permission-popup-protocol.js";
 import "./custom-provider-models.js";
 import "./provider-format-adapter.js";
+// 先加载发行版 bundle，保留原有 background 主桥。
 import "./assets/service-worker.ts-H0DVM1LS.js";
 import "./github-update-shared.js";
 import "./github-update-worker.js";
+// 再加载 detached window runtime，与 recovered runtime 组合出第二轮恢复层。
 import "./service-worker-detached-window-runtime.js";
 import "./service-worker-shortcut-workflow-sync.js";
 import "./service-worker-runtime.js";
@@ -22,6 +25,10 @@ const clearUninstallUrl = async () => {
   } catch {}
 };
 
+// loader 的职责边界：
+// 1) 保留 bundle 原来的 runtime.onMessage / onStartup / onInstalled 主桥
+// 2) 额外挂入 recovered runtime，补 detached window / cleanup / maintenance
+// 3) 通过依赖注入把 lock sweep/open/close/remove 串到 recovered runtime
 if (serviceWorkerRuntimeApi && detachedWindowRuntime) {
   serviceWorkerRuntimeApi.registerServiceWorkerRuntimeHandlers({
     chrome,

@@ -31,6 +31,7 @@
     return separatorIndex > 0 ? suffix.slice(0, separatorIndex) : "";
   }
 
+  // session cleanup 子链只关心 storage 里的 scope 账本，不负责 popup/ack/message 分发。
   function createScopeCleanupRuntime(deps) {
     const options = deps && typeof deps === "object" ? deps : {};
     const chromeApi = options.chrome;
@@ -39,6 +40,11 @@
     }
     const consoleApi = options.console || globalThis.console || createNoopConsole();
     const now = typeof options.now === "function" ? options.now : () => Date.now();
+    const createTrackedScopeEntry = () => ({
+      keys: [],
+      groupIds: new Set(),
+      mainTabIds: new Set()
+    });
 
     function getGroupIdFromScopeId(scopeId) {
       const normalizedScopeId = normalizeStorageScopeId(scopeId);
@@ -110,6 +116,9 @@
       return mainTabIds;
     }
 
+    // storage 快照索引层：
+    // 把同一 scopeId 下分散在多个 key 的内容先聚合起来，
+    // 后续 closed-group / orphan-scan 都只面对这个索引，不直接在原始 snapshot 上重复扫。
     function collectStoredScopeEntries(storageSnapshot) {
       const scopeEntries = new Map();
       for (const [storageKey, storageValue] of Object.entries(storageSnapshot || {})) {
@@ -118,11 +127,7 @@
           continue;
         }
         if (!scopeEntries.has(scopeId)) {
-          scopeEntries.set(scopeId, {
-            keys: [],
-            groupIds: new Set(),
-            mainTabIds: new Set()
-          });
+          scopeEntries.set(scopeId, createTrackedScopeEntry());
         }
         const entry = scopeEntries.get(scopeId);
         entry.keys.push(storageKey);
@@ -212,6 +217,8 @@
       };
     }
 
+    // tab group 被关闭后的清理链：
+    // 先找出所有指向该 chrome-group 的 scope，再把同 mainTabId 关联的 group:* scope 一并清掉。
     async function cleanupClosedGroupScopes(groupIdValue) {
       const groupId = Number(groupIdValue);
       if (!Number.isFinite(groupId) || groupId === chromeApi.tabGroups?.TAB_GROUP_ID_NONE) {
@@ -223,9 +230,9 @@
 
       const storageSnapshot = await chromeApi.storage.local.get(null);
       const scopeEntries = collectStoredScopeEntries(storageSnapshot);
-      const scopeIds = findScopeIdsByGroupId(scopeEntries, groupId);
+      const directScopeIdsForClosedGroup = findScopeIdsByGroupId(scopeEntries, groupId);
 
-      if (scopeIds.length === 0) {
+      if (directScopeIdsForClosedGroup.length === 0) {
         consoleApi.debug?.("[session-cleanup] no scopes matched closed group", {
           groupId
         });
@@ -238,27 +245,29 @@
         };
       }
 
-      const relatedMainTabIds = new Set();
-      for (const scopeId of scopeIds) {
+      // 第二层扩散规则：group 关闭后，不只删 chrome-group:*；
+      // 同 mainTabId 关联的 group:* scope 也要一起删，避免会话只删半边。
+      const mainTabIdsLinkedToClosedGroup = new Set();
+      for (const scopeId of directScopeIdsForClosedGroup) {
         const entry = scopeEntries.get(scopeId);
         if (!entry) {
           continue;
         }
         for (const mainTabId of entry.mainTabIds) {
-          relatedMainTabIds.add(mainTabId);
+          mainTabIdsLinkedToClosedGroup.add(mainTabId);
         }
       }
 
-      const relatedScopeIds = new Set(scopeIds);
-      if (relatedMainTabIds.size > 0) {
+      const scopeIdsToRemove = new Set(directScopeIdsForClosedGroup);
+      if (mainTabIdsLinkedToClosedGroup.size > 0) {
         for (const [scopeId, entry] of scopeEntries.entries()) {
-          if ([...entry.mainTabIds].some(mainTabId => relatedMainTabIds.has(mainTabId))) {
-            relatedScopeIds.add(scopeId);
+          if ([...entry.mainTabIds].some(mainTabId => mainTabIdsLinkedToClosedGroup.has(mainTabId))) {
+            scopeIdsToRemove.add(scopeId);
           }
         }
       }
 
-      return removeScopeEntries([...relatedScopeIds], storageSnapshot);
+      return removeScopeEntries([...scopeIdsToRemove], storageSnapshot);
     }
 
     async function canResolveTabGroup(groupId) {
@@ -273,18 +282,19 @@
       }
     }
 
+    // 启动/安装时做一次孤儿组扫描，只删 chrome-group:* 这类“组已经消失”的残留 scope。
     async function cleanupOrphanGroupScopes() {
       const storageSnapshot = await chromeApi.storage.local.get(null);
       const scopeEntries = collectStoredScopeEntries(storageSnapshot);
-      const candidateGroupIds = new Set();
+      const groupIdsSeenInScopeSnapshot = new Set();
 
       for (const entry of scopeEntries.values()) {
         for (const groupId of entry.groupIds) {
-          candidateGroupIds.add(groupId);
+          groupIdsSeenInScopeSnapshot.add(groupId);
         }
       }
 
-      if (candidateGroupIds.size === 0) {
+      if (groupIdsSeenInScopeSnapshot.size === 0) {
         await appendCleanupAudit("orphan_scan_no_groups", {});
         return {
           removedScopeIds: [],
@@ -293,7 +303,9 @@
       }
 
       const orphanScopeIds = new Set();
-      for (const groupId of candidateGroupIds) {
+      // orphan scan 只按 groupId 是否还能 resolve 来判定，
+      // 命中后只移除 chrome-group:* scope，把 group:* 会话留给显式 group close 链处理。
+      for (const groupId of groupIdsSeenInScopeSnapshot) {
         const exists = await canResolveTabGroup(groupId);
         if (!exists) {
           for (const scopeId of findScopeIdsByGroupId(scopeEntries, groupId)) {
@@ -307,7 +319,7 @@
       if (orphanScopeIds.size === 0) {
         consoleApi.debug?.("[session-cleanup] orphan scope scan found nothing to remove");
         await appendCleanupAudit("orphan_scan_noop", {
-          groupIds: [...candidateGroupIds]
+          groupIds: [...groupIdsSeenInScopeSnapshot]
         });
         return {
           removedScopeIds: [],
@@ -341,6 +353,11 @@
     };
   }
 
+  // service worker recovered runtime 只补三层职责：
+  // 1) detached window 打开/复用/锁清理
+  // 2) session scope cleanup
+  // 3) 安装/启动时的维护任务
+  // ACK、静态提示条心跳、MCP/native host 等消息仍由 bundle 内原 onMessage 主桥处理。
   function createServiceWorkerRuntimeHandlers(deps) {
     const options = deps && typeof deps === "object" ? deps : {};
     const chromeApi = options.chrome;
@@ -362,7 +379,17 @@
       success: false,
       error: "Missing openDetachedWindowForGroup dependency"
     });
+    const getDetachedLocksForHostWindow = (locks, normalizedWindowId) => Object.values(locks).filter(lockEntry =>
+      lockEntry?.hostWindowId === normalizedWindowId &&
+      lockEntry?.windowId !== normalizedWindowId
+    );
+    const getDetachedLocksForMainTab = (locks, normalizedTabId) => Object.values(locks).filter(lockEntry => lockEntry?.mainTabId === normalizedTabId);
+    const buildDetachedWindowOpenFailure = error => ({
+      success: false,
+      error: error instanceof Error ? error.message : String(error || "Unknown detached window error")
+    });
 
+    // 安装/启动维护链：清掉发行版留下的 uninstall survey，再做 scope + detached lock 巡检。
     async function runBackgroundMaintenance() {
       await clearUninstallUrl();
       await cleanupRuntime.cleanupOrphanGroupScopes();
@@ -381,6 +408,8 @@
       });
     }
 
+    // group 关闭只触发 session scope 清理。
+    // detached popup 本身仍依赖 onTabRemoved/onWindowRemoved 收口，避免和现存窗口竞争状态。
     function onTabGroupRemoved(group) {
       cleanupRuntime.cleanupClosedGroupScopes(group?.id).catch(error => {
         consoleApi.warn?.("[session-cleanup] closed group cleanup failed", error);
@@ -391,14 +420,13 @@
       });
     }
 
+    // host window 被关掉时，先找所有挂在这个 host 上的 detached popup 并关闭，
+    // 再按 windowId 把对应锁账本删掉，避免 popup 已死但锁还在。
     function onWindowRemoved(windowId) {
       (async () => {
         const normalizedWindowId = normalizePositiveNumber(windowId);
         const locks = await readDetachedWindowLocks();
-        const hostWindowLocks = Object.values(locks).filter(lockEntry =>
-          lockEntry?.hostWindowId === normalizedWindowId &&
-          lockEntry?.windowId !== normalizedWindowId
-        );
+        const hostWindowLocks = getDetachedLocksForHostWindow(locks, normalizedWindowId);
         for (const lockEntry of hostWindowLocks) {
           await closeDetachedWindowForLockEntry(lockEntry);
         }
@@ -411,14 +439,12 @@
       });
     }
 
+    // main tab 被删掉时，group 对应的 detached popup 失去锚点，直接按 lock 关闭。
     function onTabRemoved(tabId) {
       (async () => {
         const locks = await readDetachedWindowLocks();
         const normalizedTabId = normalizePositiveNumber(tabId);
-        for (const lockEntry of Object.values(locks)) {
-          if (lockEntry?.mainTabId !== normalizedTabId) {
-            continue;
-          }
+        for (const lockEntry of getDetachedLocksForMainTab(locks, normalizedTabId)) {
           await closeDetachedWindowForLockEntry(lockEntry);
         }
       })().catch(error => {
@@ -429,22 +455,34 @@
       });
     }
 
+    const isDetachedWindowOpenMessage = message => message?.type === OPEN_GROUP_DETACHED_WINDOW_MESSAGE_TYPE;
+
+    const buildDetachedWindowOpenPayload = (message, sender) => ({
+      ...message,
+      // sender.tab.id 是 detached window 打开桥的默认主上下文；
+      // 显式 mainTabId 只在调用方已经知道主 tab 时覆盖。
+      tabId: normalizePositiveNumber(message?.tabId) ?? normalizePositiveNumber(sender?.tab?.id),
+      mainTabId: normalizePositiveNumber(message?.mainTabId)
+    });
+
+    async function handleOpenDetachedWindowMessage(message, sender) {
+      return openDetachedWindowForGroup(buildDetachedWindowOpenPayload(message, sender));
+    }
+
     function onMessage(message, sender, sendResponse) {
-      if (message?.type !== OPEN_GROUP_DETACHED_WINDOW_MESSAGE_TYPE) {
+      // 这里故意只消费 OPEN_GROUP_DETACHED_WINDOW。
+      // 其余 ACK/indicator/native host/permission 等消息继续走 bundle 内原始 runtime.onMessage 主桥。
+      if (!isDetachedWindowOpenMessage(message)) {
         return false;
       }
 
-      openDetachedWindowForGroup({
-        ...message,
-        tabId: normalizePositiveNumber(message?.tabId) ?? normalizePositiveNumber(sender?.tab?.id),
-        mainTabId: normalizePositiveNumber(message?.mainTabId)
-      }).then(result => {
+      // runtime message handler 分层：
+      // 这里只负责把 sender/message 规范化后转交 detached window opener，
+      // 不在这里做 ACK、cleanup 或任何 bundle 侧消息分发。
+      handleOpenDetachedWindowMessage(message, sender).then(result => {
         sendResponse(result);
       }).catch(error => {
-        sendResponse({
-          success: false,
-          error: error instanceof Error ? error.message : String(error || "Unknown detached window error")
-        });
+        sendResponse(buildDetachedWindowOpenFailure(error));
       });
 
       return true;
@@ -455,6 +493,9 @@
       cleanupRuntime,
       clearUninstallUrl,
       runBackgroundMaintenance,
+      isDetachedWindowOpenMessage,
+      buildDetachedWindowOpenPayload,
+      handleOpenDetachedWindowMessage,
       handlers: {
         onInstalled,
         onStartup,

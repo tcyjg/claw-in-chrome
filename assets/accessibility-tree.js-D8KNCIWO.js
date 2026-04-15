@@ -1,6 +1,14 @@
 (function () {
   window.__claudeElementMap ||= {};
   window.__claudeRefCounter ||= 0;
+  // 语义锚点：页面可访问性树生成器（read_page 工具的 DOM 序列化实现）
+  const __cpAccessibilityTreeGlobalElementMapKey = "__claudeElementMap";
+  const __cpAccessibilityTreeGlobalRefCounterKey = "__claudeRefCounter";
+  const __cpAccessibilityTreeGlobalGeneratorKey = "__generateAccessibilityTree";
+  const __cpAccessibilityTreeRefIdPrefix = "ref_";
+  const __cpAccessibilityTreeDefaultDepth = 15;
+  const __cpAccessibilityTreeFilterAll = "all";
+  const __cpAccessibilityTreeFilterInteractive = "interactive";
   window.__generateAccessibilityTree = function (e, t, r, i) {
     try {
       let h = function (e) {
@@ -38,6 +46,8 @@
           label: "label"
         }[r] || "generic";
       };
+      // 语义锚点：推断元素 role（包含 input[type] 特判）
+      const __cpAccessibilityTreeInferRole = h;
       let g = function (e) {
         var t = e.tagName.toLowerCase();
         if (t === "select") {
@@ -118,18 +128,26 @@
         }
         return "";
       };
+      // 语义锚点：推断元素可读 label（aria-label/placeholder/title/alt/label[for]/textContent）
+      const __cpAccessibilityTreeInferLabel = g;
       let m = function (e) {
         var t = window.getComputedStyle(e);
         return t.display !== "none" && t.visibility !== "hidden" && t.opacity !== "0" && e.offsetWidth > 0 && e.offsetHeight > 0;
       };
+      // 语义锚点：元素可见性判断（display/visibility/opacity/尺寸）
+      const __cpAccessibilityTreeIsVisible = m;
       let s = function (e) {
         var t = e.tagName.toLowerCase();
         return ["a", "button", "input", "select", "textarea", "details", "summary"].includes(t) || e.getAttribute("onclick") !== null || e.getAttribute("tabindex") !== null || e.getAttribute("role") === "button" || e.getAttribute("role") === "link" || e.getAttribute("contenteditable") === "true";
       };
+      // 语义锚点：元素交互性判断（tag/onclick/tabindex/role/contenteditable）
+      const __cpAccessibilityTreeIsInteractive = s;
       let p = function (e) {
         var t = e.tagName.toLowerCase();
         return ["h1", "h2", "h3", "h4", "h5", "h6", "nav", "main", "header", "footer", "section", "article", "aside"].includes(t) || e.getAttribute("role") !== null;
       };
+      // 语义锚点：结构性元素判断（heading/landmark/role）
+      const __cpAccessibilityTreeIsStructural = p;
       let w = function (e, t) {
         var r = e.tagName.toLowerCase();
         if (["script", "style", "meta", "link", "title", "noscript"].includes(r)) {
@@ -162,6 +180,8 @@
         var n = h(e);
         return n !== null && n !== "generic" && n !== "image";
       };
+      // 语义锚点：元素是否纳入可访问性树（按 filter/aria-hidden/viewport 可见性/role/label）
+      const __cpAccessibilityTreeShouldIncludeElement = w;
       let b = function (e, t, r) {
         if (!(t > a) && e && e.tagName) {
           var i = w(e, r) || r.refId !== null && t === 0;
@@ -219,6 +239,8 @@
           }
         }
       };
+      // 语义锚点：DFS 遍历 + 序列化为文本行（含 ref_id 分配与 select option 展开）
+      const __cpAccessibilityTreeTraverseAndSerialize = b;
       var n = [];
       var a = t ?? 15;
       var o = {

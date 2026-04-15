@@ -80837,7 +80837,8 @@ function GY(e) {
       if (s.action !== "submenu" && s.action !== "open-modal" && s.action === "chip") {
         if (s.url && typeof window != "undefined") {
           try {
-            const e = new URLSearchParams(window.location.search).get("tabId");
+            const __cpSidepanelEditorQueryKeyTabId = "tabId";
+            const e = new URLSearchParams(window.location.search).get(__cpSidepanelEditorQueryKeyTabId);
             if (e) {
               chrome.tabs.update(parseInt(e), {
                 url: s.url
@@ -81800,7 +81801,8 @@ const QY = ({
       }), !n && l.jsx("button", {
         onClick: async () => {
           try {
-            const t = new URLSearchParams(window.location.search).get("tabId");
+            const __cpSidepanelBlockedTabsQueryKeyTabId = "tabId";
+            const t = new URLSearchParams(window.location.search).get(__cpSidepanelBlockedTabsQueryKeyTabId);
             if (!t) {
               return;
             }
@@ -83059,9 +83061,11 @@ function dX({
     });
   }, []);
   a.useEffect(() => {
-    const e = new URLSearchParams(window.location.search).get("requestId");
+    const __cpSidepanelPermissionDialogQueryKeyRequestId = "requestId";
+    const __cpSidepanelPermissionDialogMcpPromptStoragePrefix = "mcp_prompt_";
+    const e = new URLSearchParams(window.location.search).get(__cpSidepanelPermissionDialogQueryKeyRequestId);
     if (e) {
-      const t = `mcp_prompt_${e}`;
+      const t = `${__cpSidepanelPermissionDialogMcpPromptStoragePrefix}${e}`;
       chrome.storage.local.get(t).then(e => {
         const n = e[t];
         if (n) {
@@ -84013,8 +84017,10 @@ const wX = ({
             }
           }
         }, 3000);
+        const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+        const __cpSidepanelOutgoingMessageTypeSecondaryTabCheckMain = __cpSidepanelContractMessages?.SECONDARY_TAB_CHECK_MAIN ?? "SECONDARY_TAB_CHECK_MAIN";
         chrome.runtime.sendMessage({
-          type: "SECONDARY_TAB_CHECK_MAIN",
+          type: __cpSidepanelOutgoingMessageTypeSecondaryTabCheckMain,
           secondaryTabId: r,
           mainTabId: n,
           timestamp: Date.now()
@@ -87893,6 +87899,8 @@ function __cpPanelDebugMaskProvider(e) {
     return null;
   }
 }
+// 语义锚点：sidepanel 聊天主 orchestrator 组件入口（参数注入、消息列表、system prompt 组合等）。
+const __cpSidepanelChatOrchestratorComponent = CQ;
 function CQ({
   apiKey: e,
   authToken: t,
@@ -87948,12 +87956,19 @@ function CQ({
   const [K, J] = a.useState([]);
   const __cpFallbackSystemPrompt = "You are Claude CUSTOM, a browser sidepanel assistant inside a Chrome extension. Help the user complete their request accurately and concisely. Use available browser context and tools when needed, but never pretend an action succeeded if you did not actually perform it. If a request could cause irreversible changes, purchases, submissions, account changes, authentication changes, or destructive actions, pause and ask the user to confirm before proceeding.";
   const __cpFallbackSkipPermissionsSystemPrompt = __cpFallbackSystemPrompt + "\n\nIf permission prompts are skipped or follow-a-plan mode is active, continue carefully, keep the user informed, and avoid high-risk actions unless the user has clearly asked for them.";
+  // 语义锚点：sidepanel 系统提示词配置从 storage 读取（options 写入，sidepanel 消费）。
+  const __cpSidepanelPromptsContract = globalThis.__CP_CONTRACT__?.prompts || {};
+  const __cpSidepanelStorageKeySystemPrompt = __cpSidepanelPromptsContract.SYSTEM_PROMPT_STORAGE_KEY || "chrome_ext_system_prompt";
+  const __cpSidepanelStorageKeySkipPermissionsSystemPrompt = __cpSidepanelPromptsContract.SKIP_PERMISSIONS_SYSTEM_PROMPT_STORAGE_KEY || "chrome_ext_skip_perms_system_prompt";
+  const __cpSidepanelStorageKeyMultipleTabsSystemPrompt = __cpSidepanelPromptsContract.MULTIPLE_TABS_SYSTEM_PROMPT_STORAGE_KEY || "chrome_ext_multiple_tabs_system_prompt";
+  const __cpSidepanelStorageKeyExplicitPermissionsPrompt = __cpSidepanelPromptsContract.EXPLICIT_PERMISSIONS_PROMPT_STORAGE_KEY || "chrome_ext_explicit_permissions_prompt";
+  const __cpSidepanelStorageKeyToolUsagePrompt = __cpSidepanelPromptsContract.TOOL_USAGE_PROMPT_STORAGE_KEY || "chrome_ext_tool_usage_prompt";
   const Y = (() => {
-    const e = g("chrome_ext_system_prompt", __cpStableEmptyObject);
-    const t = g("chrome_ext_skip_perms_system_prompt", __cpStableEmptyObject);
-    const n = g("chrome_ext_multiple_tabs_system_prompt", __cpStableEmptyObject);
-    const s = g("chrome_ext_explicit_permissions_prompt", __cpStableEmptyObject);
-    const r = g("chrome_ext_tool_usage_prompt", __cpStableEmptyObject);
+    const e = g(__cpSidepanelStorageKeySystemPrompt, __cpStableEmptyObject);
+    const t = g(__cpSidepanelStorageKeySkipPermissionsSystemPrompt, __cpStableEmptyObject);
+    const n = g(__cpSidepanelStorageKeyMultipleTabsSystemPrompt, __cpStableEmptyObject);
+    const s = g(__cpSidepanelStorageKeyExplicitPermissionsPrompt, __cpStableEmptyObject);
+    const r = g(__cpSidepanelStorageKeyToolUsagePrompt, __cpStableEmptyObject);
     return a.useMemo(() => {
       const i = n.multipleTabsSystemPrompt ?? "";
       const o = typeof e.systemPrompt == "string" && e.systemPrompt.trim() ? e.systemPrompt : __cpFallbackSystemPrompt;
@@ -88002,7 +88017,9 @@ function CQ({
       return r;
     }, [t, e]);
   })();
-  const Q = g("chrome_ext_custom_tool_prompts", __cpStableEmptyObject);
+  // 语义锚点：聊天编排层读取的额外 prompt/storage 配置（工具 prompt、自定义 PURL、版本提示等）。
+  const __cpSidepanelStorageKeyCustomToolPrompts = "chrome_ext_custom_tool_prompts";
+  const Q = g(__cpSidepanelStorageKeyCustomToolPrompts, __cpStableEmptyObject);
   const ee = a.useRef(null);
   const te = a.useRef(null);
   const ne = a.useRef(false);
@@ -88594,6 +88611,10 @@ function CQ({
     }
     return false;
   }, [Ce, _e]);
+  // 语义锚点：工具执行总线。
+  // 这段负责处理 tool 调用结果，并在遇到 `permission_required` 时走“提示 -> 用户批准 -> 重试执行”的主链。
+  // 语义锚点：工具结果汇总与权限闸门。
+  // 普通工具直接执行；返回 `permission_required` 的工具会先走 sidepanel 确认，再决定是否重放执行。
   const Se = a.useCallback(async (e, t, n) => {
     const s = [];
     let r;
@@ -88653,6 +88674,8 @@ function CQ({
             availableTabs: a.tabContext.availableTabs
           };
         }
+        // 语义锚点：工具执行主循环里的 permission_required 分支。
+        // 这里会先通过 UI 请求权限，再按原工具参数重放一次执行。
         if ("type" in i && i.type === "permission_required") {
           const e = {
             ...i
@@ -88728,6 +88751,7 @@ function CQ({
       lastTabContext: r
     };
   }, [ke, l, c, x, f]);
+  const __cpPermissionRetryingToolExecutor = Se;
   const je = a.useCallback(async (e, t, i, a, l, u = false) => {
     if (!ee.current) {
       throw new Error("Client not initialized");
@@ -89729,6 +89753,8 @@ async function OQ(e, t) {
     result: n
   };
 }
+// 语义锚点：单次动作的 permission_required 重试包装器。
+const __cpPermissionRetryHelper = OQ;
 async function IQ(e, t, n) {
   try {
     const s = await gt.getValidTabsWithMetadata(e);
@@ -89795,8 +89821,10 @@ function FQ(e) {
     V.current = p;
     const $ = a.useRef(null);
     const H = T();
-    const B = g("chrome_ext_purl_prompt", "");
-    const U = g("chrome_ext_purl_config", null);
+    const __cpSidepanelStorageKeyPurlPrompt = "chrome_ext_purl_prompt";
+    const __cpSidepanelStorageKeyPurlConfig = "chrome_ext_purl_config";
+    const B = g(__cpSidepanelStorageKeyPurlPrompt, "");
+    const U = g(__cpSidepanelStorageKeyPurlConfig, null);
     const Z = Ge();
     const W = a.useRef(Z);
     W.current = Z;
@@ -90307,6 +90335,7 @@ function FQ(e) {
                         break;
                       }
                       let a = false;
+                      // 语义锚点：plan 审批型 permission_required 对象的产出点。
                       a = c !== "follow_a_plan" || !u || (await u({
                         type: "permission_required",
                         tool: C.PLAN_APPROVAL,
@@ -91530,8 +91559,10 @@ function ZQ({
           }
           await x(v.PENDING_SCHEDULED_TASK, g);
           await new Promise((e, t) => {
+            const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+            const __cpSidepanelOutgoingMessageTypeOpenOptionsWithTask = __cpSidepanelContractMessages?.OPEN_OPTIONS_WITH_TASK ?? "OPEN_OPTIONS_WITH_TASK";
             chrome.runtime.sendMessage({
-              type: "OPEN_OPTIONS_WITH_TASK",
+              type: __cpSidepanelOutgoingMessageTypeOpenOptionsWithTask,
               task: g
             }, n => {
               if (chrome.runtime.lastError) {
@@ -91759,7 +91790,9 @@ const __CP_CHAT_SESSION_TEXT_LIMIT = 4000;
 const __CP_CHAT_SESSION_JSON_TEXT_LIMIT = 800;
 const __CP_CHAT_SESSION_MAX_SNAPSHOT_CHARS = 180000;
 const __CP_GROUP_TITLE_LIMIT = 48;
+// 语义锚点：sidepanel 本地记录 detached window 锁状态的 storage key。
 const __CP_DETACHED_WINDOW_LOCKS_KEY = "claw.detachedWindowLocks";
+const __cpDetachedWindowLockStorageKey = __CP_DETACHED_WINDOW_LOCKS_KEY;
 function __cpIsChineseLocale(e) {
   const t = String(e || typeof navigator < "u" && navigator?.language || "").toLowerCase();
   return t.startsWith("zh");
@@ -91779,6 +91812,7 @@ function __cpGetLocalizedDetachedWindowLockDescription(e) {
 function __cpGetLocalizedDetachedWindowLockActionText(e) {
   return __cpIsChineseLocale(e) ? "打开独立窗口" : "Open detached window";
 }
+// 语义锚点：detached window 锁记录的归一化入口。
 function __cpNormalizeDetachedWindowLockEntry(e) {
   const t = Number(e?.groupId);
   const n = Number(e?.windowId);
@@ -91793,6 +91827,7 @@ function __cpNormalizeDetachedWindowLockEntry(e) {
     updatedAt: Number.isFinite(Number(e?.updatedAt)) ? Math.trunc(Number(e.updatedAt)) : Date.now()
   };
 }
+// 语义锚点：按 chromeGroupId 读取当前 sidepanel 作用域对应的 detached window 锁。
 function __cpGetDetachedWindowLockForGroup(e, t) {
   const n = Number(e);
   if (!Number.isFinite(n) || n === chrome.tabGroups.TAB_GROUP_ID_NONE || !t || typeof t != "object") {
@@ -93192,7 +93227,8 @@ function KQ() {
     currentVersion: "",
     minSupportedVersion: null
   });
-  const o = g("chrome_ext_version_info", __cpStableEmptyObject);
+  const __cpSidepanelStorageKeyVersionInfo = "chrome_ext_version_info";
+  const o = g(__cpSidepanelStorageKeyVersionInfo, __cpStableEmptyObject);
   a.useEffect(() => {
     const e = chrome.runtime.getManifest().version;
     t(e);
@@ -94530,12 +94566,15 @@ const QQ = ({
   };
 };
 const e1 = () => {
+  const __cpSidepanelBootstrapQueryKeySkipPermissions = "skipPermissions";
+  const __cpSidepanelPermissionModeSkipAll = "skip_all_permission_checks";
+  const __cpSidepanelPermissionModeAsk = "ask";
   if (typeof window != "undefined") {
-    if (new URLSearchParams(window.location.search).get("skipPermissions") === "true") {
-      return "skip_all_permission_checks";
+    if (new URLSearchParams(window.location.search).get(__cpSidepanelBootstrapQueryKeySkipPermissions) === "true") {
+      return __cpSidepanelPermissionModeSkipAll;
     }
   }
-  return "ask";
+  return __cpSidepanelPermissionModeAsk;
 };
 // 权限弹窗态：权限请求内容和当前 permissionMode 在这里集中管理。
 const t1 = ut(e => ({
@@ -94661,7 +94700,53 @@ function o1() {
   const r = ks();
   const i = t1();
   const o = qQ();
-  const c = a.useMemo(() => new URLSearchParams(window.location.search).get("mode") === "window", []);
+  // 语义锚点：sidepanel 页面 query 参数协议（主窗口/独立窗口、目标 tab、MCP 权限窗、模型注入）。
+  const __cpSidepanelPairingContract = globalThis.__CP_CONTRACT__?.pairing || {};
+  const __cpSidepanelPairingQueryKeys = __cpSidepanelPairingContract.QUERY_KEYS || {};
+  const __cpSidepanelPairingMessageFields = __cpSidepanelPairingContract.MESSAGE_FIELDS || {};
+  const __cpSidepanelPairingContractMessages = globalThis.__CP_CONTRACT__?.messages || {};
+  const __cpSidepanelPairingQueryKeyRequestId = __cpSidepanelPairingQueryKeys.REQUEST_ID || "request_id";
+  const __cpSidepanelPairingQueryKeyClientType = __cpSidepanelPairingQueryKeys.CLIENT_TYPE || "client_type";
+  const __cpSidepanelPairingQueryKeyCurrentName = __cpSidepanelPairingQueryKeys.CURRENT_NAME || "current_name";
+  const __cpSidepanelPairingMessageFieldRequestId = __cpSidepanelPairingMessageFields.REQUEST_ID || "request_id";
+  const __cpSidepanelPairingMessageFieldName = __cpSidepanelPairingMessageFields.NAME || "name";
+  const __cpSidepanelRuntimeMessageTypeShowPairingPrompt = __cpSidepanelPairingContractMessages.show_pairing_prompt ?? "show_pairing_prompt";
+  const __cpSidepanelOutgoingMessageTypePairingConfirmed = __cpSidepanelPairingContractMessages.pairing_confirmed ?? "pairing_confirmed";
+  const __cpSidepanelMcpBridgeContract = globalThis.__CP_CONTRACT__?.mcpBridge || {};
+  const __cpSidepanelMcpPermissionPopupProtocol = globalThis.__CP_MCP_PERMISSION_POPUP_PROTOCOL__ || {};
+  const __cpSidepanelMcpPermissionPromptStorageFields = __cpSidepanelMcpPermissionPopupProtocol.STORAGE_FIELDS || __cpSidepanelMcpBridgeContract.PERMISSION_PROMPT_STORAGE_FIELDS || {};
+  const __cpSidepanelMcpPermissionPopupQueryKeys = __cpSidepanelMcpPermissionPopupProtocol.QUERY_KEYS || __cpSidepanelMcpBridgeContract.PERMISSION_POPUP_QUERY_KEYS || {};
+  const __cpSidepanelMcpRuntimeMessageFields = __cpSidepanelMcpPermissionPopupProtocol.RESPONSE_FIELDS || __cpSidepanelMcpBridgeContract.RUNTIME_MESSAGE_FIELDS || {};
+  const __cpSidepanelPageQueryKeyMode = "mode";
+  const __cpSidepanelPageQueryModeWindow = "window";
+  const __cpSidepanelPageQueryKeyTabId = __cpSidepanelMcpPermissionPopupQueryKeys.TAB_ID || "tabId";
+  const __cpSidepanelPageQueryKeySkipPermissions = "skipPermissions";
+  const __cpSidepanelPageQueryKeyMcpPermissionOnly = __cpSidepanelMcpPermissionPopupQueryKeys.PERMISSION_ONLY || "mcpPermissionOnly";
+  const __cpSidepanelPageQueryKeyRequestId = __cpSidepanelMcpPermissionPopupQueryKeys.REQUEST_ID || "requestId";
+  const __cpSidepanelPageQueryKeyModel = "model";
+  const __cpSidepanelPageMcpPromptStoragePrefix = __cpSidepanelMcpPermissionPopupProtocol.STORAGE_KEY_PREFIX || __cpSidepanelMcpBridgeContract.PERMISSION_PROMPT_STORAGE_KEY_PREFIX || "mcp_prompt_";
+  const __cpSidepanelMcpPromptStorageFieldPrompt = __cpSidepanelMcpPermissionPromptStorageFields.PROMPT || "prompt";
+  const __cpSidepanelMcpPromptStorageFieldTabId = __cpSidepanelMcpPermissionPromptStorageFields.TAB_ID || "tabId";
+  const __cpSidepanelMcpPromptStorageFieldTimestamp = __cpSidepanelMcpPermissionPromptStorageFields.TIMESTAMP || "timestamp";
+  const __cpSidepanelMcpRuntimeMessageFieldRequestId = __cpSidepanelMcpRuntimeMessageFields.REQUEST_ID || "requestId";
+  const __cpSidepanelMcpRuntimeMessageFieldAllowed = __cpSidepanelMcpRuntimeMessageFields.ALLOWED || "allowed";
+  const __cpSidepanelMcpPermissionPopupBuildStorageKey = __cpSidepanelMcpPermissionPopupProtocol.buildPromptStorageKey || (e => `${__cpSidepanelPageMcpPromptStoragePrefix}${e}`);
+  const __cpSidepanelMcpPermissionPopupParseSearch = __cpSidepanelMcpPermissionPopupProtocol.parsePopupSearch || (e => {
+    const t = new URLSearchParams(e);
+    return {
+      tabId: Number.isFinite(Number(t.get(__cpSidepanelPageQueryKeyTabId))) ? Number(t.get(__cpSidepanelPageQueryKeyTabId)) : null,
+      permissionOnly: t.get(__cpSidepanelPageQueryKeyMcpPermissionOnly) === "true",
+      requestId: t.get(__cpSidepanelPageQueryKeyRequestId) || ""
+    };
+  });
+  const __cpSidepanelMcpPermissionPopupBuildResponse = __cpSidepanelMcpPermissionPopupProtocol.buildResponseMessage || ((e, t) => ({
+    type: globalThis.__CP_CONTRACT__?.messages?.MCP_PERMISSION_RESPONSE ?? "MCP_PERMISSION_RESPONSE",
+    [__cpSidepanelMcpRuntimeMessageFieldRequestId]: e,
+    [__cpSidepanelMcpRuntimeMessageFieldAllowed]: t
+  }));
+  // 语义锚点：MCP permission popup 的 query 消费分两段，tabId 走通用 sidepanel bootstrap，mcpPermissionOnly/requestId 走权限弹窗链。
+  const __cpSidepanelPageWindowCloseDelayMs = __cpSidepanelMcpPermissionPopupProtocol.WINDOW_CLOSE_DELAY_MS || 50;
+  const c = a.useMemo(() => new URLSearchParams(window.location.search).get(__cpSidepanelPageQueryKeyMode) === __cpSidepanelPageQueryModeWindow, []);
   const u = ks(ws(e => ({
     setShowCommandMenu: e.setShowCommandMenu,
     setShowWorkflowModeSelectionModal: e.setShowWorkflowModeSelectionModal,
@@ -94838,12 +94923,15 @@ function o1() {
       refreshTokenIfNeeded: h
     };
   })();
-  const Y = g("chrome_ext_announcement", __cpStableEmptyObject);
+  const __cpSidepanelStorageKeyAnnouncement = "chrome_ext_announcement";
+  const __cpSidepanelStorageKeyFlashEnabled = "chrome_ext_flash_enabled";
+  const __cpSidepanelStorageKeyPurlMode = "purlMode";
+  const Y = g(__cpSidepanelStorageKeyAnnouncement, __cpStableEmptyObject);
   const X = a.useRef(false);
   const [Q, ee] = at(v.NOTIFICATIONS_ENABLED, undefined);
   const [__cpHighRiskWarningDismissed, __cpSetHighRiskWarningDismissed] = at(__CP_HIGH_RISK_WARNING_DISMISSED_KEY, null);
   const [__cpHighRiskWarningReady, __cpSetHighRiskWarningReady] = a.useState(__cpHighRiskWarningDismissed !== null);
-  const te = g("chrome_ext_flash_enabled", false);
+  const te = g(__cpSidepanelStorageKeyFlashEnabled, false);
   const [ne, se] = a.useState(false);
   const [re, ie] = a.useState(false);
   // 首屏模型初始化的去重与并发锁，避免配置未变时重复 bootstrap。
@@ -94855,7 +94943,7 @@ function o1() {
       return;
     }
     if (te) {
-      chrome.storage.local.get("purlMode").then(e => {
+      chrome.storage.local.get(__cpSidepanelStorageKeyPurlMode).then(e => {
         if (e.purlMode) {
           se(true);
         }
@@ -94931,11 +95019,13 @@ function o1() {
     a.useEffect(() => {
       (async function () {
         const e = new URLSearchParams(window.location.search);
-        const r = e.get("tabId");
+        const {
+          tabId: r
+        } = __cpSidepanelMcpPermissionPopupParseSearch(window.location.search);
         let o;
         if (r) {
-          o = parseInt(r);
-        } else if (e.get("mode") === "window") {
+          o = r;
+        } else if (e.get(__cpSidepanelPageQueryKeyMode) === __cpSidepanelPageQueryModeWindow) {
           const e = await y(v.TARGET_TAB_ID);
           if (e) {
             o = e;
@@ -95067,19 +95157,24 @@ function o1() {
         body: n,
         icon: s
       }) => {
+        const __cpSidepanelNotificationSoundPath = "sounds/notification.mp3";
+        const __cpSidepanelChromeNotificationTypeBasic = "basic";
+        const __cpSidepanelBrowserNotificationAutoCloseMs = 5000;
         const r = s || chrome.runtime.getURL("claude_icon.svg");
         try {
           if (document.hidden) {
-            const e = chrome.runtime.getURL("sounds/notification.mp3");
+            const e = chrome.runtime.getURL(__cpSidepanelNotificationSoundPath);
+            const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+            const __cpSidepanelOutgoingMessageTypePlayNotificationSound = __cpSidepanelContractMessages?.PLAY_NOTIFICATION_SOUND ?? "PLAY_NOTIFICATION_SOUND";
             chrome.runtime.sendMessage({
-              type: "PLAY_NOTIFICATION_SOUND",
+              type: __cpSidepanelOutgoingMessageTypePlayNotificationSound,
               audioUrl: e,
               volume: 0.5
             }).then(() => {}).catch(e => {});
           }
           if (chrome.notifications) {
             const s = {
-              type: "basic",
+              type: __cpSidepanelChromeNotificationTypeBasic,
               iconUrl: r,
               title: t,
               message: n,
@@ -95093,7 +95188,7 @@ function o1() {
               icon: r,
               silent: true
             });
-            setTimeout(() => e.close(), 5000);
+            setTimeout(() => e.close(), __cpSidepanelBrowserNotificationAutoCloseMs);
             e.onclick = () => {
               window.focus();
               e.close();
@@ -95184,20 +95279,27 @@ function o1() {
     }, [e, s]);
     return t;
   }(ce);
+  // 语义锚点：当前 sidepanel 权限请求的 Promise resolve 挂点。
+  // 普通 sidepanel 权限弹窗与 mcpPermissionOnly 独立窗口，最终都会把允许/拒绝写回这里。
   const Ee = a.useRef(null);
+  const __cpSidepanelPermissionPromptPromiseResolverRef = Ee;
   const Te = a.useRef(null);
   const [Ne, Ae] = a.useState(false);
   a.useEffect(() => {
     Ae(false);
   }, [false, ce]);
+  // 语义锚点：sidepanel 内联 pairing 弹层状态。
+  // 这里只保存 requestId/clientType/currentName；dismiss 分支不会在这里发 pairing_dismissed。
   const [Le, Oe] = a.useState(null);
+  const __cpSidepanelInlinePairingPromptState = Le;
   a.useEffect(() => {
+    // 语义锚点：sidepanel 已打开时，优先在当前面板内消费 show_pairing_prompt，而不是退化为新开 pairing.html。
     const e = (e, t, n) => {
-      if (e.type === "show_pairing_prompt") {
+      if (e.type === __cpSidepanelRuntimeMessageTypeShowPairingPrompt) {
         Oe({
-          requestId: e.request_id,
-          clientType: e.client_type,
-          currentName: e.current_name
+          requestId: e[__cpSidepanelPairingQueryKeyRequestId],
+          clientType: e[__cpSidepanelPairingQueryKeyClientType],
+          currentName: e[__cpSidepanelPairingQueryKeyCurrentName]
         });
         n({
           handled: true
@@ -95562,6 +95664,25 @@ function o1() {
       });
     }
   }, [Q, Me, n]);
+  // 语义锚点：工具执行返回 `permission_required` 时，统一从这里转到 sidepanel 权限弹窗。
+  const __cpHandlePermissionRequiredPrompt = async e => {
+    i.setPermissionPrompt(e);
+    try {
+      const t = e.url ? new URL(e.url).hostname : "this page";
+      const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+      const __cpSidepanelOutgoingMessageTypeShowPermissionNotification = __cpSidepanelContractMessages?.SHOW_PERMISSION_NOTIFICATION ?? "SHOW_PERMISSION_NOTIFICATION";
+      chrome.runtime.sendMessage({
+        type: __cpSidepanelOutgoingMessageTypeShowPermissionNotification,
+        action: "browser_automation",
+        domain: t
+      }, () => {
+        chrome.runtime.lastError;
+      });
+    } catch (t) {}
+    return new Promise(e => {
+      Ee.current = e;
+    });
+  };
   const {
     messages: dt,
     messageHistory: ht,
@@ -95601,45 +95722,31 @@ function o1() {
     onShareRequested: lt,
     permissionManager: ae,
     permissionMode: i.permissionMode,
-    onPermissionRequired: async e => {
-      i.setPermissionPrompt(e);
-      try {
-        const t = e.url ? new URL(e.url).hostname : "this page";
-        chrome.runtime.sendMessage({
-          type: "SHOW_PERMISSION_NOTIFICATION",
-          action: "browser_automation",
-          domain: t
-        }, () => {
-          chrome.runtime.lastError;
-        });
-      } catch (t) {}
-      return new Promise(e => {
-        Ee.current = e;
-      });
-    }
+    onPermissionRequired: __cpHandlePermissionRequiredPrompt
   });
   (function (e, t) {
     a.useEffect(() => {
-      const n = new URLSearchParams(window.location.search);
-      const s = n.get("mcpPermissionOnly") === "true";
-      const r = n.get("requestId");
+      const {
+        permissionOnly: s,
+        requestId: r
+      } = __cpSidepanelMcpPermissionPopupParseSearch(window.location.search);
       if (!s || !r) {
         return;
       }
-      const i = `mcp_prompt_${r}`;
+      // 语义锚点：MCP permission popup consumer 挂载点 1，负责从 storage 注入 prompt 并绑定当前 requestId 的回包回调。
+      // 语义锚点：mcpPermissionOnly 独立窗口启动后，会从 storage 注入 prompt，并在用户决策后立即回包关闭。
+      const i = __cpSidepanelMcpPermissionPopupBuildStorageKey(r);
       chrome.storage.local.get(i).then(n => {
         const s = n[i];
         if (s) {
-          t(s.prompt);
+          // 语义锚点：sidepanel 的 MCP permission popup consumer 只消费 storage payload 里的 prompt；tabId/timestamp 不参与此处上下文恢复。
+          t(s[__cpSidepanelMcpPromptStorageFieldPrompt]);
           e.current = e => {
-            chrome.runtime.sendMessage({
-              type: "MCP_PERMISSION_RESPONSE",
-              requestId: r,
-              allowed: e
-            });
+            // 语义锚点：MCP 权限窗回包字段 requestId/allowed 与 mcpBridge runtime 字段契约保持一致；真正关联 pending promise 的是 requestId，不是 tabId。
+            chrome.runtime.sendMessage(__cpSidepanelMcpPermissionPopupBuildResponse(r, e));
             setTimeout(() => {
               window.close();
-            }, 50);
+            }, __cpSidepanelPageWindowCloseDelayMs);
           };
         }
       });
@@ -96102,31 +96209,34 @@ function o1() {
     setBlockedTabInfo: ve
   });
   a.useEffect(() => {
-    const e = new URLSearchParams(window.location.search);
-    const t = e.get("mcpPermissionOnly") === "true";
-    const n = e.get("requestId");
+    const {
+      permissionOnly: t,
+      requestId: n
+    } = __cpSidepanelMcpPermissionPopupParseSearch(window.location.search);
     if (t && n) {
-      const e = `mcp_prompt_${n}`;
+      // 语义锚点：MCP permission popup consumer 挂载点 2，复用同一份 storage prompt 与 requestId 回包逻辑给主面板状态层。
+      const e = __cpSidepanelMcpPermissionPopupBuildStorageKey(n);
       chrome.storage.local.get(e).then(t => {
         const n = t[e];
         if (n) {
-          d.setPermissionPrompt(n.prompt);
+          // 语义锚点：主面板状态层同样只读取 prompt；storage payload 里的 tabId/timestamp 不在这里消费。
+          d.setPermissionPrompt(n[__cpSidepanelMcpPromptStorageFieldPrompt]);
         }
       });
       Ee.current = e => {
-        chrome.runtime.sendMessage({
-          type: "MCP_PERMISSION_RESPONSE",
-          requestId: n,
-          allowed: e
-        });
-        setTimeout(() => window.close(), 50);
+        // 语义锚点：sidepanel 主面板里的 MCP 权限弹窗复用同一组 requestId/allowed runtime 字段。
+        chrome.runtime.sendMessage(__cpSidepanelMcpPermissionPopupBuildResponse(n, e));
+        setTimeout(() => window.close(), __cpSidepanelPageWindowCloseDelayMs);
       };
     }
   }, [d]);
   a.useEffect(() => {
     if (ce) {
+      const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+      const __cpSidepanelOutgoingMessageTypePanelOpened = __cpSidepanelContractMessages?.PANEL_OPENED ?? "PANEL_OPENED";
+      // 语义锚点：PANEL_OPENED / PANEL_CLOSED 只表示 sidepanel 可见性生命周期，不等于 MCP permission response。
       chrome.runtime.sendMessage({
-        type: "PANEL_OPENED",
+        type: __cpSidepanelOutgoingMessageTypePanelOpened,
         tabId: ce,
         mainTabId: je || ce
       }).catch(console.error);
@@ -96170,7 +96280,7 @@ function o1() {
     let e = true;
     (async () => {
       try {
-        if (new URLSearchParams(window.location.search).get("skipPermissions") === "true") {
+        if (new URLSearchParams(window.location.search).get(__cpSidepanelPageQueryKeySkipPermissions) === "true") {
           X.current = true;
           return;
         }
@@ -96198,8 +96308,11 @@ function o1() {
     const e = () => {
       if (document.visibilityState === "hidden") {
         (async () => {
+          const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+          const __cpSidepanelOutgoingMessageTypePanelClosed = __cpSidepanelContractMessages?.PANEL_CLOSED ?? "PANEL_CLOSED";
+          // 语义锚点：PANEL_CLOSED 由 visibilitychange(hidden) 触发，只表示页面进入 hidden，不等价于 MCP permission 拒绝。
           chrome.runtime.sendMessage({
-            type: "PANEL_CLOSED",
+            type: __cpSidepanelOutgoingMessageTypePanelClosed,
             tabId: ce,
             mainTabId: je || ce
           }).catch(console.error);
@@ -96215,6 +96328,8 @@ function o1() {
     document.addEventListener("visibilitychange", e);
     // 语义锚点：首屏模型 bootstrap 主链。
     // 这里按 query 参数 -> sticky model -> default override -> quick mode fast model 的顺序落位模型。
+    // 语义锚点：scope hydrate 主流程。
+    // 新 scope 激活后，会在这里做旧 scope 持久化、draft/active session 恢复、legacy scope 迁移。
     (async () => {
       try {
         const e = ($.options || []).map(e => typeof e == "string" ? {
@@ -96223,7 +96338,7 @@ function o1() {
         } : e);
         const t = $.quick_mode?.available_models;
         const n = ne && t ? e.filter(e => t.includes(e.model)) : e;
-        const s = new URLSearchParams(window.location.search).get("model");
+        const s = new URLSearchParams(window.location.search).get(__cpSidepanelPageQueryKeyModel);
         const r = n.map(e => `${e?.model || ""}::${e?.name || ""}::${e?.description || ""}`).join("||");
         const i = [ce || "", je || "", ne ? "1" : "0", D || "", s || "", $.default || "", $.default_model_override_id || "", $.quick_mode?.fast_model || "", r].join("__");
         if (__cpModelBootstrapActiveRef.current) {
@@ -96378,7 +96493,8 @@ function o1() {
     return () => e.removeEventListener("scroll", t);
   }, [K, it.isBlocked, q, Ce, u]);
   a.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mcpPermissionOnly") !== "true") {
+    if (new URLSearchParams(window.location.search).get(__cpSidepanelPageQueryKeyMcpPermissionOnly) !== "true") {
+      // 语义锚点：mcpPermissionOnly 专用窗口会绕过普通 sidepanel 的权限提示 UI 分支，直接走 requestId 回包后关窗。
       if (i.permissionPrompt && Q === "enabled") {
         Me({
           title: n.formatMessage({
@@ -96397,10 +96513,12 @@ function o1() {
     }
   }, [n, i.permissionPrompt, Q, Me, ce]);
   a.useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mode") === "window") {
+    if (new URLSearchParams(window.location.search).get(__cpSidepanelPageQueryKeyMode) === __cpSidepanelPageQueryModeWindow) {
+      const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+      const __cpSidepanelOutgoingMessageTypeResizeWindow = __cpSidepanelContractMessages?.resize_window ?? "resize_window";
       chrome.windows.getCurrent(e => {
         chrome.runtime.sendMessage({
-          type: "resize_window",
+          type: __cpSidepanelOutgoingMessageTypeResizeWindow,
           windowId: e.id
         });
       });
@@ -96523,6 +96641,7 @@ function o1() {
       }
     }
   }, [Ze, xt, W, Z, He, ne, Qe, pt, o]);
+  // 语义锚点：权限弹窗“允许”处理器。
   const nn = a.useCallback(async (e, t) => {
     if (!i.permissionPrompt || !Ee.current) {
       return;
@@ -96540,7 +96659,10 @@ function o1() {
         await m();
       } catch (n) {}
     }
+    // 语义锚点：普通 sidepanel 权限链里，toolUseId 只用于一次性授权账本；
+    // 真正和 background pending permission promise 对账的是 Ee.current 对应的 requestId 链。
     await ae.grantPermission(t, e, e === w.ONCE ? i.permissionPrompt.toolUseId : undefined);
+    // 语义锚点：Ee.current(true) 实际上会 resolve 当前 requestId 对应的 MCP permission pending promise。
     Ee.current(true);
     Ee.current = null;
     i.setPermissionPrompt(null);
@@ -96548,15 +96670,22 @@ function o1() {
       gt.addLoadingPrefix(ce).catch(() => {});
     }
   }, [p, m, ae, ce, xt, i]);
+  // 语义锚点：权限弹窗“拒绝”处理器。
   const sn = a.useCallback(() => {
     if (Ee.current) {
+      // 语义锚点：Ee.current(false) 会把当前 requestId 对应的 MCP permission pending promise 解析为拒绝。
       Ee.current(false);
       Ee.current = null;
       i.setPermissionPrompt(null);
     }
   }, [i]);
+  const __cpPermissionApproveHandler = nn;
+  const __cpPermissionDenyHandler = sn;
   const __cpSessionCreatedAtRef = a.useRef(Date.now());
   const __cpHydratingSessionRef = a.useRef(false);
+  // 语义锚点：session hydrate 并发锁，防止 scope 切换和外部 active session 同步同时覆盖 UI 状态。
+  // 锁持有期间，draft/snapshot 持久化与外部 active session 追平都需要避让，避免把“恢复中的旧态”再次写回 storage。
+  const __cpSessionHydrationLockRef = __cpHydratingSessionRef;
   const __cpHydrationRunRef = a.useRef(0);
   const __cpLoadedScopeIdRef = a.useRef("");
   const __cpActiveScopeRef = a.useRef(null);
@@ -96601,6 +96730,8 @@ function o1() {
       e = true;
     };
   }, []);
+  // 语义锚点：从 detached window lock 账本回读当前 scope 是否已被独立窗口接管。
+  // sidepanel 只消费 background 落下的 lock ledger，不在这里直接 query popup 真窗口。
   const __cpRefreshDetachedWindowLock = a.useCallback(async (e = __cpSessionScope) => {
     const t = __cpNormalizeScopeState(e);
     if (c || !t.ready || !Number.isFinite(Number(t.chromeGroupId)) || t.chromeGroupId === chrome.tabGroups.TAB_GROUP_ID_NONE) {
@@ -96725,6 +96856,8 @@ function o1() {
     });
     return n;
   }, [ce, Se, je, __cpNormalizeScopeState]);
+  // 语义锚点：会话恢复主链从这里开始。
+  // recent sessions 刷新、empty session 激活、draft/snapshot 持久化、外部 active session 同步，都围绕这组函数展开。
   const __cpRefreshRecentSessions = a.useCallback(async (e = __cpActiveScopeRef.current) => {
     const t = __cpNormalizeScopeState(e);
     if (!t.ready) {
@@ -96823,6 +96956,7 @@ function o1() {
     });
     return s;
   }, [__cpNormalizeScopeState, __cpStartEmptySessionForScope]);
+  // 语义锚点：把当前输入框草稿持久化到 scope draft ledger，供 scope 切换 / detached window 恢复时优先回放。
   const __cpPersistDraftState = a.useCallback(async (e = __cpActiveScopeRef.current) => {
     const t = __cpNormalizeScopeState(e);
     if (__cpHydratingSessionRef.current || !t.ready) {
@@ -96867,6 +97001,7 @@ function o1() {
     __cpPersistedDraftSignatureRef.current = r;
     await LocalSessionRepository.saveDraft(t.scopeId, s);
   }, [o.sessionId, o.inputText, D, ne, __cpNormalizeScopeState]);
+  // 语义锚点：把当前消息快照持久化到 scope session ledger，供 hydrate / recent session / detached window 接续。
   const __cpPersistSessionSnapshot = a.useCallback(async (e = __cpActiveScopeRef.current) => {
     const t = __cpNormalizeScopeState(e);
     if (__cpHydratingSessionRef.current || !t.ready || !__cpSessionHasMeaningfulMessages(dt)) {
@@ -96926,6 +97061,9 @@ function o1() {
     }
     return s;
   }, [dt, o.sessionId, D, ne, jt, __cpNormalizeScopeState, __cpResolveSessionTabContext]);
+  // 语义锚点：把 draft 恢复到当前 scope 的主链。
+  // 语义锚点：把草稿态恢复回当前 sidepanel 会话的入口。
+  // 只接受 scopeId 完全匹配的 draft，避免把其他 group/tab 的草稿串到当前 sidepanel。
   const __cpApplySessionDraft = a.useCallback(async (e, t = __cpActiveScopeRef.current) => {
     const s = __cpNormalizeScopeState(t);
     const r = __cpNormalizeSessionDraft(e);
@@ -96965,6 +97103,10 @@ function o1() {
     });
     return true;
   }, [__cpNormalizeScopeState, __cpResolveSessionModeAndModel, se, P, U, o]);
+  const __cpApplyDraftToCurrentScope = __cpApplySessionDraft;
+  // 语义锚点：把持久化 snapshot 恢复到当前 scope 的主链。
+  // 语义锚点：把持久化 snapshot 恢复回当前 sidepanel 会话的入口。
+  // 只接受 scopeId 完全匹配的 snapshot，避免 cross-scope 的消息快照污染当前会话。
   const __cpApplySessionSnapshot = a.useCallback(async (e, t = __cpActiveScopeRef.current) => {
     const n = __cpNormalizeScopeState(t);
     const s = __cpNormalizeSessionSnapshot(e);
@@ -97013,26 +97155,31 @@ function o1() {
     });
     return true;
   }, [__cpNormalizeScopeState, __cpResolveSessionModeAndModel, o, se, P, U, __cpSetChatMessages, __cpSetLastStopReason]);
+  const __cpApplySnapshotToCurrentScope = __cpApplySessionSnapshot;
+  // 语义锚点：其他标签页/窗口改动 active session 后，这里负责把当前 sidepanel 同步到正确 session。
+  // 语义锚点：外部 active session 变化后的统一同步入口。
+  // 若当前正在 hydrate 或 agent 正在运行，则先排队，等 UI 可安全覆盖时再回放。
+  // 会按 draft -> snapshot -> empty 的顺序尝试恢复。
   const __cpSyncExternalActiveSession = a.useCallback(async (e, t, n = null) => {
-    const s = __cpNormalizeScopeState(e);
-    const r = __cpNormalizeActiveSessionRef(t);
-    const i = __cpNormalizeSessionDraft(n);
-    const o = i?.scopeId === s.scopeId && i.sessionId ? i.sessionId : r?.scopeId === s.scopeId ? r.sessionId : "";
-    if (!s.ready || !s.scopeId || !o) {
+    const __cpTargetScopeState = __cpNormalizeScopeState(e);
+    const __cpIncomingActiveSessionRef = __cpNormalizeActiveSessionRef(t);
+    const __cpIncomingDraft = __cpNormalizeSessionDraft(n);
+    const __cpIncomingSessionId = __cpIncomingDraft?.scopeId === __cpTargetScopeState.scopeId && __cpIncomingDraft.sessionId ? __cpIncomingDraft.sessionId : __cpIncomingActiveSessionRef?.scopeId === __cpTargetScopeState.scopeId ? __cpIncomingActiveSessionRef.sessionId : "";
+    if (!__cpTargetScopeState.ready || !__cpTargetScopeState.scopeId || !__cpIncomingSessionId) {
       return false;
     }
-    if (o === __cpCurrentSessionIdRef.current) {
+    if (__cpIncomingSessionId === __cpCurrentSessionIdRef.current) {
       return false;
     }
     if (xt || __cpHydratingSessionRef.current) {
       __cpPendingExternalActiveSyncRef.current = {
-        scopeState: s,
-        activeRef: r,
-        draft: i
+        scopeState: __cpTargetScopeState,
+        activeRef: __cpIncomingActiveSessionRef,
+        draft: __cpIncomingDraft
       };
       __cpPanelDebugLog("session.external_active_sync_queued", {
-        scopeId: s.scopeId,
-        sessionId: o,
+        scopeId: __cpTargetScopeState.scopeId,
+        sessionId: __cpIncomingSessionId,
         isAgentRunning: xt,
         hydrating: __cpHydratingSessionRef.current
       });
@@ -97042,37 +97189,37 @@ function o1() {
     __cpPendingExternalActiveSyncRef.current = null;
     try {
       await __cpResetSessionWorkspace();
-      if (i && i.scopeId === s.scopeId && i.sessionId === o) {
-        await __cpApplySessionDraft(i, s);
+      if (__cpIncomingDraft && __cpIncomingDraft.scopeId === __cpTargetScopeState.scopeId && __cpIncomingDraft.sessionId === __cpIncomingSessionId) {
+        await __cpApplySessionDraft(__cpIncomingDraft, __cpTargetScopeState);
         __cpPanelDebugLog("session.external_active_sync_done", {
-          scopeId: s.scopeId,
-          sessionId: o,
+          scopeId: __cpTargetScopeState.scopeId,
+          sessionId: __cpIncomingSessionId,
           path: "draft"
         });
         return true;
       }
-      const e = await LocalSessionRepository.readSession(s.scopeId, o);
-      if (e) {
-        await __cpApplySessionSnapshot(e, s);
+      const __cpIncomingSnapshot = await LocalSessionRepository.readSession(__cpTargetScopeState.scopeId, __cpIncomingSessionId);
+      if (__cpIncomingSnapshot) {
+        await __cpApplySessionSnapshot(__cpIncomingSnapshot, __cpTargetScopeState);
         __cpPanelDebugLog("session.external_active_sync_done", {
-          scopeId: s.scopeId,
-          sessionId: o,
+          scopeId: __cpTargetScopeState.scopeId,
+          sessionId: __cpIncomingSessionId,
           path: "snapshot"
         });
         return true;
       }
-      await __cpActivateEmptySessionForScope(s, o);
+      await __cpActivateEmptySessionForScope(__cpTargetScopeState, __cpIncomingSessionId);
       __cpPanelDebugLog("session.external_active_sync_done", {
-        scopeId: s.scopeId,
-        sessionId: o,
+        scopeId: __cpTargetScopeState.scopeId,
+        sessionId: __cpIncomingSessionId,
         path: "empty"
       });
       return true;
-    } catch (e) {
+    } catch (__cpExternalActiveSyncError) {
       __cpPanelDebugLog("session.external_active_sync_failed", {
-        scopeId: s.scopeId,
-        sessionId: o,
-        message: e instanceof Error ? e.message : String(e || "")
+        scopeId: __cpTargetScopeState.scopeId,
+        sessionId: __cpIncomingSessionId,
+        message: __cpExternalActiveSyncError instanceof Error ? __cpExternalActiveSyncError.message : String(__cpExternalActiveSyncError || "")
       }, "warn");
       return false;
     } finally {
@@ -97081,6 +97228,7 @@ function o1() {
       }, 0);
     }
   }, [xt, __cpNormalizeScopeState, __cpResetSessionWorkspace, __cpApplySessionDraft, __cpApplySessionSnapshot, __cpActivateEmptySessionForScope]);
+  const __cpSynchronizeExternalActiveSession = __cpSyncExternalActiveSession;
   const __cpOpenRecentSession = a.useCallback(async e => {
     const t = __cpActiveScopeRef.current;
     if (!e || xt || !t?.ready || !t.scopeId) {
@@ -97176,6 +97324,8 @@ function o1() {
   }, []);
   a.useEffect(() => {
     let e = false;
+    // 语义锚点：scope 切换后的 session hydrate 主流程。
+    // 这里会决定是迁移 legacy scope、恢复 draft、恢复 snapshot，还是为新 scope 激活空 session。
     (async () => {
       const t = await __cpResolveCurrentScope();
       if (e) {
@@ -97200,6 +97350,7 @@ function o1() {
       return;
     }
     __cpRefreshDetachedWindowLock(e).catch(() => {});
+    // 语义锚点：detached window 锁状态的 storage 同步监听。
     const t = (t, n) => {
       if (n !== "local" || !(__CP_DETACHED_WINDOW_LOCKS_KEY in (t || {}))) {
         return;
@@ -97217,37 +97368,39 @@ function o1() {
     if (!e.ready || !e.scopeId) {
       return;
     }
-    const t = __cpChatScopeStoragePrefix(e.scopeId);
-    const n = __cpChatScopeIndexKey(e.scopeId);
-    const s = __cpChatScopeDraftKey(e.scopeId);
-    const r = __cpChatScopeActiveSessionKey(e.scopeId);
-    let i = false;
-    const o = (o, a) => {
-      if (i || a !== "local") {
+    const __cpScopeStorageByIdPrefix = __cpChatScopeStoragePrefix(e.scopeId);
+    const __cpScopeStorageIndexKey = __cpChatScopeIndexKey(e.scopeId);
+    const __cpScopeStorageDraftKey = __cpChatScopeDraftKey(e.scopeId);
+    const __cpScopeStorageActiveSessionKey = __cpChatScopeActiveSessionKey(e.scopeId);
+    let __cpStorageSyncDisposed = false;
+    // 语义锚点：scope 绑定的 storage 变化同步桥。
+    // recent session、draft、active session 任一变动，都会从这里刷新并尝试做外部 active session 同步。
+    const __cpHandleScopeStorageChange = (t, n) => {
+      if (__cpStorageSyncDisposed || n !== "local") {
         return;
       }
-      const l = Object.keys(o || {});
-      const c = l.some(e => e === n || e === s || e === r || !!t && e.startsWith(`${t}.byId.`));
-      if (!c) {
+      const __cpChangedKeys = Object.keys(t || {});
+      const __cpTouchesCurrentScopeLedger = __cpChangedKeys.some(e => e === __cpScopeStorageIndexKey || e === __cpScopeStorageDraftKey || e === __cpScopeStorageActiveSessionKey || !!__cpScopeStorageByIdPrefix && e.startsWith(`${__cpScopeStorageByIdPrefix}.byId.`));
+      if (!__cpTouchesCurrentScopeLedger) {
         return;
       }
       __cpPanelDebugLog("session.recent_refresh_external_change", {
         scopeId: e.scopeId,
-        changedKeys: l
+        changedKeys: __cpChangedKeys
       });
       __cpRefreshRecentSessions(e).catch(() => {});
-      const u = r in o ? __cpNormalizeActiveSessionRef(o[r]?.newValue) : null;
-      const d = s in o ? __cpNormalizeSessionDraft(o[s]?.newValue) : null;
-      const h = d?.scopeId === e.scopeId && d.sessionId ? d.sessionId : u?.scopeId === e.scopeId ? u.sessionId : "";
-      if (!h || h === __cpCurrentSessionIdRef.current) {
+      const __cpIncomingActiveSessionRef = __cpScopeStorageActiveSessionKey in t ? __cpNormalizeActiveSessionRef(t[__cpScopeStorageActiveSessionKey]?.newValue) : null;
+      const __cpIncomingDraft = __cpScopeStorageDraftKey in t ? __cpNormalizeSessionDraft(t[__cpScopeStorageDraftKey]?.newValue) : null;
+      const __cpIncomingSessionId = __cpIncomingDraft?.scopeId === e.scopeId && __cpIncomingDraft.sessionId ? __cpIncomingDraft.sessionId : __cpIncomingActiveSessionRef?.scopeId === e.scopeId ? __cpIncomingActiveSessionRef.sessionId : "";
+      if (!__cpIncomingSessionId || __cpIncomingSessionId === __cpCurrentSessionIdRef.current) {
         return;
       }
-      __cpSyncExternalActiveSession(e, u, d).catch(() => {});
+      __cpSyncExternalActiveSession(e, __cpIncomingActiveSessionRef, __cpIncomingDraft).catch(() => {});
     };
-    chrome.storage.onChanged.addListener(o);
+    chrome.storage.onChanged.addListener(__cpHandleScopeStorageChange);
     return () => {
-      i = true;
-      chrome.storage.onChanged.removeListener(o);
+      __cpStorageSyncDisposed = true;
+      chrome.storage.onChanged.removeListener(__cpHandleScopeStorageChange);
     };
   }, [__cpSessionScope, __cpNormalizeScopeState, __cpRefreshRecentSessions, __cpSyncExternalActiveSession]);
   a.useEffect(() => {
@@ -97264,6 +97417,7 @@ function o1() {
     if (!e) {
       return;
     }
+    // 语义锚点：hydrate/agent 让位期间积压的外部 active session，在锁释放后从这里补跑。
     __cpPendingExternalActiveSyncRef.current = null;
     __cpSyncExternalActiveSession(e.scopeState, e.activeRef, e.draft).catch(() => {});
   }, [xt, __cpSessionScope, __cpSyncExternalActiveSession]);
@@ -97274,163 +97428,175 @@ function o1() {
     }
     __cpLoadedScopeIdRef.current = e.scopeId;
     const __cpHydrationRunId = ++__cpHydrationRunRef.current;
-    let t = false;
+    let __cpHydrationCancelled = false;
+    const __cpShouldAbortHydrationRun = () => __cpHydrationCancelled || __cpHydrationRunRef.current !== __cpHydrationRunId;
+    // 语义锚点：scope 切换后的 session hydrate 总入口。
+    // 这里会依次尝试 legacy scope、exact scope、current URL 迁移，再决定恢复路径。
     (async () => {
-      const n = __cpActiveScopeRef.current;
+      const __cpPreviousScopeState = __cpActiveScopeRef.current;
       __cpHydratingSessionRef.current = true;
       __cpActiveScopeRef.current = e;
       __cpPanelDebugLog("session.hydrate_start", {
         scopeId: e.scopeId,
-        previousScopeId: n?.scopeId || "",
+        previousScopeId: __cpPreviousScopeState?.scopeId || "",
         currentSessionId: o.sessionId,
         currentMessageCount: Array.isArray(dt) ? dt.length : 0
       });
       try {
         sn();
-        if (n?.ready && n.scopeId && n.scopeId !== e.scopeId) {
+        // 语义锚点：scope 切换前，先把旧 scope 当前会话落到 storage，供新 sidepanel / detached window 接续恢复。
+        if (__cpPreviousScopeState?.ready && __cpPreviousScopeState.scopeId && __cpPreviousScopeState.scopeId !== e.scopeId) {
           if (__cpSessionHasMeaningfulMessages(dt)) {
-            await __cpPersistSessionSnapshot(n).catch(() => {});
+            await __cpPersistSessionSnapshot(__cpPreviousScopeState).catch(() => {});
           } else {
-            await __cpPersistDraftState(n).catch(() => {});
+            await __cpPersistDraftState(__cpPreviousScopeState).catch(() => {});
           }
         }
         await __cpResetSessionWorkspace();
         __cpSetRecentSessions([]);
-        let [s, r, i] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
-        if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+        // 语义锚点：先把新 scope 的 recent index / draft / active session ref 一次性读齐，再决定 hydrate 路径。
+        let [__cpRecentSessionsForScope, __cpDraftForScope, __cpActiveSessionRefForScope] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
+        if (__cpShouldAbortHydrationRun()) {
           return;
         }
-        if (s.length === 0 && !r && !i && Number.isFinite(Number(e.chromeGroupId)) && e.chromeGroupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
+        // 语义锚点：hydrate 迁移策略 1，按旧 chromeGroup scope 兜底迁移。
+        // 当前 scope 为空时，先按旧 chromeGroup 找 legacy scope，把历史会话整体搬到新 scope。
+        if (__cpRecentSessionsForScope.length === 0 && !__cpDraftForScope && !__cpActiveSessionRefForScope && Number.isFinite(Number(e.chromeGroupId)) && e.chromeGroupId !== chrome.tabGroups.TAB_GROUP_ID_NONE) {
           __cpPanelDebugLog("session.hydrate_legacy_lookup", {
             scopeId: e.scopeId,
             chromeGroupId: e.chromeGroupId
           });
-          const n = await LocalSessionRepository.findMatchingLegacyScopes(e.chromeGroupId, e.scopeId);
-          if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+          const __cpLegacyScopeCandidates = await LocalSessionRepository.findMatchingLegacyScopes(e.chromeGroupId, e.scopeId);
+          if (__cpShouldAbortHydrationRun()) {
             return;
           }
-          if (n.length > 0) {
+          if (__cpLegacyScopeCandidates.length > 0) {
             __cpPanelDebugLog("session.hydrate_legacy_migrate", {
               scopeId: e.scopeId,
               chromeGroupId: e.chromeGroupId,
-              sourceScopeId: n[0].scopeId,
-              candidateCount: n.length
+              sourceScopeId: __cpLegacyScopeCandidates[0].scopeId,
+              candidateCount: __cpLegacyScopeCandidates.length
             });
-            await LocalSessionRepository.migrateScope(n[0].scopeId, e, {
+            await LocalSessionRepository.migrateScope(__cpLegacyScopeCandidates[0].scopeId, e, {
               transfer: true
             });
-            if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+            if (__cpShouldAbortHydrationRun()) {
               return;
             }
-            [s, r, i] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
-            if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+            [__cpRecentSessionsForScope, __cpDraftForScope, __cpActiveSessionRefForScope] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
+            if (__cpShouldAbortHydrationRun()) {
               return;
             }
           }
         }
-        if (s.length === 0 && !r && !i && (Number.isFinite(Number(e.chromeGroupId)) && e.chromeGroupId !== chrome.tabGroups.TAB_GROUP_ID_NONE || Number.isFinite(Number(e.mainTabId)) && e.mainTabId > 0)) {
+        // 语义锚点：hydrate 迁移策略 2，按当前 scope 精确匹配 mainTab/group 迁移。
+        // legacy scope 没命中时，再按 mainTab/group 精确对账，查找能直接归并到当前 scope 的旧账本。
+        if (__cpRecentSessionsForScope.length === 0 && !__cpDraftForScope && !__cpActiveSessionRefForScope && (Number.isFinite(Number(e.chromeGroupId)) && e.chromeGroupId !== chrome.tabGroups.TAB_GROUP_ID_NONE || Number.isFinite(Number(e.mainTabId)) && e.mainTabId > 0)) {
           __cpPanelDebugLog("session.hydrate_exact_scope_lookup", {
             scopeId: e.scopeId,
             chromeGroupId: e.chromeGroupId,
             mainTabId: e.mainTabId
           });
-          const n = await LocalSessionRepository.migrateExactScopes(e);
-          if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+          const __cpExactScopeMigration = await LocalSessionRepository.migrateExactScopes(e);
+          if (__cpShouldAbortHydrationRun()) {
             return;
           }
-          if (n.sourceScopeId) {
+          if (__cpExactScopeMigration.sourceScopeId) {
             __cpPanelDebugLog("session.hydrate_exact_scope_migrate", {
               scopeId: e.scopeId,
-              sourceScopeId: n.sourceScopeId,
-              migratedCount: n.migratedCount,
-              recentCount: n.recent.length
+              sourceScopeId: __cpExactScopeMigration.sourceScopeId,
+              migratedCount: __cpExactScopeMigration.migratedCount,
+              recentCount: __cpExactScopeMigration.recent.length
             });
-            [s, r, i] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
-            if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+            [__cpRecentSessionsForScope, __cpDraftForScope, __cpActiveSessionRefForScope] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
+            if (__cpShouldAbortHydrationRun()) {
               return;
             }
           }
         }
-        if (s.length === 0 && !r && !i) {
-          const n = await __cpResolveSessionTabContext();
-          if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+        // 语义锚点：hydrate 迁移策略 3，按当前 URL / 标题做近似匹配迁移。
+        // 以上都没命中时，最后再按当前页面 URL / 标题做近似恢复，兜底接回历史 scope。
+        if (__cpRecentSessionsForScope.length === 0 && !__cpDraftForScope && !__cpActiveSessionRefForScope) {
+          const __cpCurrentTabContext = await __cpResolveSessionTabContext();
+          if (__cpShouldAbortHydrationRun()) {
             return;
           }
           __cpPanelDebugLog("session.hydrate_current_url_lookup", {
             scopeId: e.scopeId,
-            currentUrl: n.currentUrl,
-            tabTitle: n.tabTitle
+            currentUrl: __cpCurrentTabContext.currentUrl,
+            tabTitle: __cpCurrentTabContext.tabTitle
           });
-          const o = await LocalSessionRepository.findMatchingCurrentUrlScopes({
-            currentUrl: n.currentUrl,
-            tabTitle: n.tabTitle,
+          const __cpCurrentUrlScopeCandidates = await LocalSessionRepository.findMatchingCurrentUrlScopes({
+            currentUrl: __cpCurrentTabContext.currentUrl,
+            tabTitle: __cpCurrentTabContext.tabTitle,
             excludeScopeId: e.scopeId
           });
-          if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+          if (__cpShouldAbortHydrationRun()) {
             return;
           }
-          if (o.length > 0) {
+          if (__cpCurrentUrlScopeCandidates.length > 0) {
             __cpPanelDebugLog("session.hydrate_current_url_migrate", {
               scopeId: e.scopeId,
-              sourceScopeId: o[0].scopeId,
-              currentUrl: n.currentUrl,
-              tabTitle: n.tabTitle
+              sourceScopeId: __cpCurrentUrlScopeCandidates[0].scopeId,
+              currentUrl: __cpCurrentTabContext.currentUrl,
+              tabTitle: __cpCurrentTabContext.tabTitle
             });
-            await LocalSessionRepository.migrateScope(o[0].scopeId, {
+            await LocalSessionRepository.migrateScope(__cpCurrentUrlScopeCandidates[0].scopeId, {
               ...e,
-              domain: n.currentDomain,
-              currentUrl: n.currentUrl,
-              tabTitle: n.tabTitle
+              domain: __cpCurrentTabContext.currentDomain,
+              currentUrl: __cpCurrentTabContext.currentUrl,
+              tabTitle: __cpCurrentTabContext.tabTitle
             }, {
               transfer: true
             });
-            if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+            if (__cpShouldAbortHydrationRun()) {
               return;
             }
-            [s, r, i] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
-            if (t || __cpHydrationRunRef.current !== __cpHydrationRunId) {
+            [__cpRecentSessionsForScope, __cpDraftForScope, __cpActiveSessionRefForScope] = await Promise.all([LocalSessionRepository.readValidatedIndex(e.scopeId), LocalSessionRepository.readDraft(e.scopeId), LocalSessionRepository.readActiveSession(e.scopeId)]);
+            if (__cpShouldAbortHydrationRun()) {
               return;
             }
           }
         }
         __cpActiveScopeRef.current = e;
-        __cpSetRecentSessions(s);
-        if (r) {
+        __cpSetRecentSessions(__cpRecentSessionsForScope);
+        // 语义锚点：hydrate 最终恢复优先级 = draft -> active session snapshot -> recent first snapshot -> empty。
+        if (__cpDraftForScope) {
           __cpPanelDebugLog("session.hydrate_path", {
             scopeId: e.scopeId,
             path: "draft",
-            sessionId: r.sessionId,
-            recentCount: s.length
+            sessionId: __cpDraftForScope.sessionId,
+            recentCount: __cpRecentSessionsForScope.length
           });
-          await __cpApplySessionDraft(r, e);
-        } else if (i) {
+          await __cpApplySessionDraft(__cpDraftForScope, e);
+        } else if (__cpActiveSessionRefForScope) {
           __cpPanelDebugLog("session.hydrate_path", {
             scopeId: e.scopeId,
             path: "active_session",
-            sessionId: i.sessionId,
-            recentCount: s.length
+            sessionId: __cpActiveSessionRefForScope.sessionId,
+            recentCount: __cpRecentSessionsForScope.length
           });
-          const t = await LocalSessionRepository.readSession(e.scopeId, i.sessionId);
-          if (t) {
-            await __cpApplySessionSnapshot(t, e);
+          const __cpActiveSessionSnapshot = await LocalSessionRepository.readSession(e.scopeId, __cpActiveSessionRefForScope.sessionId);
+          if (__cpActiveSessionSnapshot) {
+            await __cpApplySessionSnapshot(__cpActiveSessionSnapshot, e);
           } else {
             __cpPanelDebugLog("session.hydrate_path", {
               scopeId: e.scopeId,
               path: "empty_active_session",
-              sessionId: i.sessionId
+              sessionId: __cpActiveSessionRefForScope.sessionId
             });
-            await __cpActivateEmptySessionForScope(e, i.sessionId);
+            await __cpActivateEmptySessionForScope(e, __cpActiveSessionRefForScope.sessionId);
           }
-        } else if (s.length > 0) {
+        } else if (__cpRecentSessionsForScope.length > 0) {
           __cpPanelDebugLog("session.hydrate_path", {
             scopeId: e.scopeId,
             path: "recent_first",
-            sessionId: s[0].id,
-            recentCount: s.length
+            sessionId: __cpRecentSessionsForScope[0].id,
+            recentCount: __cpRecentSessionsForScope.length
           });
-          const t = await LocalSessionRepository.readSession(e.scopeId, s[0].id);
-          if (t) {
-            await __cpApplySessionSnapshot(t, e);
+          const __cpFirstRecentSessionSnapshot = await LocalSessionRepository.readSession(e.scopeId, __cpRecentSessionsForScope[0].id);
+          if (__cpFirstRecentSessionSnapshot) {
+            await __cpApplySessionSnapshot(__cpFirstRecentSessionSnapshot, e);
           } else {
             __cpPanelDebugLog("session.hydrate_path", {
               scopeId: e.scopeId,
@@ -97450,7 +97616,7 @@ function o1() {
           scopeId: e.scopeId,
           message: s instanceof Error ? s.message : String(s || "")
         }, "error");
-        if (!t) {
+        if (!__cpHydrationCancelled) {
           __cpActiveScopeRef.current = e;
           await __cpActivateEmptySessionForScope(e);
         }
@@ -97465,7 +97631,7 @@ function o1() {
       }
     })();
     return () => {
-      t = true;
+      __cpHydrationCancelled = true;
       __cpPanelDebugLog("session.hydrate_cleanup", {
         scopeId: e.scopeId,
         runId: __cpHydrationRunId
@@ -97534,18 +97700,30 @@ function o1() {
     hasBrowserControlPermission: m
   }) {
     a.useEffect(() => {
+      // 语义锚点：sidepanel <-> service worker / runtime.onMessage 消息协议（ping/主副 tab ack/执行/填充/停止）。
+      const __cpSidepanelContractMessages = globalThis.__CP_CONTRACT__?.messages;
+      const __cpSidepanelRuntimeMessageTypePingSidepanel = __cpSidepanelContractMessages?.PING_SIDEPANEL ?? "PING_SIDEPANEL";
+      const __cpSidepanelRuntimeMessageTypeMainTabAckRequest = __cpSidepanelContractMessages?.MAIN_TAB_ACK_REQUEST ?? "MAIN_TAB_ACK_REQUEST";
+      const __cpSidepanelRuntimeMessageTypeMainTabAckResponse = __cpSidepanelContractMessages?.MAIN_TAB_ACK_RESPONSE ?? "MAIN_TAB_ACK_RESPONSE";
+      const __cpSidepanelRuntimeMessageTypeStopAgent = __cpSidepanelContractMessages?.STOP_AGENT ?? "STOP_AGENT";
+      const __cpSidepanelRuntimeMessageTypeExecuteTask = __cpSidepanelContractMessages?.EXECUTE_TASK ?? "EXECUTE_TASK";
+      const __cpSidepanelRuntimeMessageTypePopulateInputText = __cpSidepanelContractMessages?.POPULATE_INPUT_TEXT ?? "POPULATE_INPUT_TEXT";
+      const __cpSidepanelQueryKeyMode = "mode";
+      const __cpSidepanelQueryModeWindow = "window";
+      const __cpSidepanelQueryKeySessionId = "sessionId";
+      const __cpSidepanelQueryKeySkipPermissions = "skipPermissions";
       const a = (a, f, g) => {
-        if (a.type === "PING_SIDEPANEL") {
+        if (a.type === __cpSidepanelRuntimeMessageTypePingSidepanel) {
           g({
             success: true,
             tabId: e
           });
           return true;
         }
-        if (a.type === "MAIN_TAB_ACK_REQUEST") {
+        if (a.type === __cpSidepanelRuntimeMessageTypeMainTabAckRequest) {
           if (e === a.mainTabId && !t) {
             chrome.runtime.sendMessage({
-              type: "MAIN_TAB_ACK_RESPONSE",
+              type: __cpSidepanelRuntimeMessageTypeMainTabAckResponse,
               secondaryTabId: a.secondaryTabId,
               mainTabId: e,
               success: true
@@ -97557,7 +97735,7 @@ function o1() {
           }
           return false;
         }
-        if (a.type === "STOP_AGENT") {
+        if (a.type === __cpSidepanelRuntimeMessageTypeStopAgent) {
           if (n) {
             s();
           }
@@ -97567,10 +97745,10 @@ function o1() {
           });
           return true;
         }
-        if (a.type === "EXECUTE_TASK") {
+        if (a.type === __cpSidepanelRuntimeMessageTypeExecuteTask) {
           const t = new URLSearchParams(window.location.search);
-          const s = t.get("mode") === "window";
-          const r = t.get("sessionId");
+          const s = t.get(__cpSidepanelQueryKeyMode) === __cpSidepanelQueryModeWindow;
+          const r = t.get(__cpSidepanelQueryKeySessionId);
           if (s && r) {
             if (a.windowSessionId !== r) {
               return false;
@@ -97583,7 +97761,7 @@ function o1() {
               return false;
             }
           }
-          if (t.get("skipPermissions") === "true") {
+          if (t.get(__cpSidepanelQueryKeySkipPermissions) === "true") {
             o.setPermissionMode("skip_all_permission_checks");
           }
           const c = a.isScheduledTask && a.taskName ? `[Scheduled Task: ${a.taskName}]\n${a.prompt}` : a.prompt;
@@ -97596,7 +97774,7 @@ function o1() {
           });
           return true;
         }
-        if (a.type === "POPULATE_INPUT_TEXT") {
+        if (a.type === __cpSidepanelRuntimeMessageTypePopulateInputText) {
           const e = a.prompt || "";
           i.setInputText(e);
           i.setPendingPrompt(e);
@@ -97788,41 +97966,44 @@ function o1() {
       U(e, ne);
     }
   }, [U, H, ne]);
+  // 语义锚点：独立窗口打开前，会先把当前 scope 的 snapshot/draft 持久化，再发 background 消息。
+  // 这样 detached window 打开后，可以沿用同一份 scope ledger 完成 hydrate，而不是从空白会话重新开始。
   const __cpOpenDetachedWindow = a.useCallback(async () => {
-    const e = __cpActiveScopeRef.current;
-    const t = Number.isFinite(Number(e?.mainTabId)) ? Number(e.mainTabId) : Number.isFinite(Number(je)) ? Number(je) : Number.isFinite(Number(ce)) ? Number(ce) : null;
-    if (!t) {
+    const __cpScopeStateBeforeOpen = __cpActiveScopeRef.current;
+    const __cpDetachedWindowMainTabId = Number.isFinite(Number(__cpScopeStateBeforeOpen?.mainTabId)) ? Number(__cpScopeStateBeforeOpen.mainTabId) : Number.isFinite(Number(je)) ? Number(je) : Number.isFinite(Number(ce)) ? Number(ce) : null;
+    if (!__cpDetachedWindowMainTabId) {
       return;
     }
     try {
-      const n = __cpNormalizeScopeState(e);
-      if (n.ready && n.scopeId) {
+      const __cpDetachedWindowTargetScope = __cpNormalizeScopeState(__cpScopeStateBeforeOpen);
+      if (__cpDetachedWindowTargetScope.ready && __cpDetachedWindowTargetScope.scopeId) {
         if (__cpSessionHasMeaningfulMessages(dt)) {
-          await __cpPersistSessionSnapshot(n).catch(() => null);
+          await __cpPersistSessionSnapshot(__cpDetachedWindowTargetScope).catch(() => null);
         } else {
-          await __cpPersistDraftState(n).catch(() => {});
-          await LocalSessionRepository.saveActiveSession(n.scopeId, {
+          await __cpPersistDraftState(__cpDetachedWindowTargetScope).catch(() => {});
+          // 语义锚点：草稿态打开 detached window 前，也要先写 active session ref，确保新窗口能对齐当前 sessionId。
+          await LocalSessionRepository.saveActiveSession(__cpDetachedWindowTargetScope.scopeId, {
             sessionId: __cpCurrentSessionIdRef.current || o.sessionId,
             viewedAt: Date.now(),
-            mainTabId: n.mainTabId,
-            chromeGroupId: n.chromeGroupId
+            mainTabId: __cpDetachedWindowTargetScope.mainTabId,
+            chromeGroupId: __cpDetachedWindowTargetScope.chromeGroupId
           }).catch(() => {});
         }
       }
-      const s = await chrome.runtime.sendMessage({
+      const __cpOpenDetachedWindowResponse = await chrome.runtime.sendMessage({
         type: "OPEN_GROUP_DETACHED_WINDOW",
         tabId: ce,
-        mainTabId: t,
-        groupId: Number.isFinite(Number(e?.chromeGroupId)) ? Number(e.chromeGroupId) : null
+        mainTabId: __cpDetachedWindowMainTabId,
+        groupId: Number.isFinite(Number(__cpScopeStateBeforeOpen?.chromeGroupId)) ? Number(__cpScopeStateBeforeOpen.chromeGroupId) : null
       });
-      if (!s?.success) {
-        console.warn("[detached-window] failed to open", s?.error || "unknown_error");
+      if (!__cpOpenDetachedWindowResponse?.success) {
+        console.warn("[detached-window] failed to open", __cpOpenDetachedWindowResponse?.error || "unknown_error");
       }
-    } catch (n) {
-      console.warn("[detached-window] failed to open", n);
+    } catch (__cpOpenDetachedWindowError) {
+      console.warn("[detached-window] failed to open", __cpOpenDetachedWindowError);
     }
   }, [ce, je, dt, o.sessionId, __cpNormalizeScopeState, __cpPersistSessionSnapshot, __cpPersistDraftState]);
-  if (new URLSearchParams(window.location.search).get("mcpPermissionOnly") === "true") {
+  if (new URLSearchParams(window.location.search).get(__cpSidepanelPageQueryKeyMcpPermissionOnly) === "true") {
     return l.jsx(dX, {
       permissionPrompt: i.permissionPrompt,
       onAllow: nn,
@@ -97923,14 +98104,16 @@ function o1() {
             clientType: Le.clientType,
             currentName: Le.currentName,
             onConfirm: (e, t) => {
+              // 语义锚点：sidepanel 内联 pairing 确认后，复用 pairing_confirmed 协议把 request_id/name 回传给 bridge。
               chrome.runtime.sendMessage({
-                type: "pairing_confirmed",
-                request_id: e,
-                name: t
+                type: __cpSidepanelOutgoingMessageTypePairingConfirmed,
+                [__cpSidepanelPairingMessageFieldRequestId]: e,
+                [__cpSidepanelPairingMessageFieldName]: t
               });
               Oe(null);
             },
             onDismiss: () => {
+              // 语义锚点：sidepanel 内联 pairing 的 dismiss 只关闭本地弹层；pairing_dismissed 仅由独立 pairing.html 发出。
               Oe(null);
             }
           })

@@ -53,3 +53,7 @@
 - 基线回归：`node tests/run-all-tests.js`
 - 发布前确认 zip 打包清单包含所有新增根目录脚本
 - 手工冒烟至少覆盖 sidepanel、options、自定义 provider、更新检查、会话恢复、独立窗口
+
+## 辅助文档
+
+- `docs/message-protocol.md`：跨页面 `runtime.sendMessage`/`onMessage` 协议索引（配合 `claw-contract.js:contract.messages` 使用）

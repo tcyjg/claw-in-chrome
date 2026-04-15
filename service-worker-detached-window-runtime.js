@@ -39,6 +39,11 @@
     const pageUrl = String(options.pageUrl || chromeApi.runtime.getURL(pagePath));
     const pageMeta = new URL(pageUrl);
     const detachedWindowSize = normalizeWindowSize(options.defaultSize || detachedWindowContract.DEFAULT_SIZE);
+    const detachedWindowQueryMode = "window";
+    const detachedWindowQueryKeyMode = "mode";
+    const detachedWindowQueryKeyTabId = "tabId";
+    const detachedWindowQueryKeyGroupId = "groupId";
+    const detachedWindowChromePopupType = "popup";
 
     const normalizePositiveNumber = value => {
       const normalizedValue = Number(value);
@@ -50,6 +55,9 @@
       return Number.isFinite(normalizedValue) && normalizedValue !== chromeApi.tabGroups.TAB_GROUP_ID_NONE ? Math.trunc(normalizedValue) : null;
     };
 
+    // detached window lock 归一化边界：
+    // 只把 groupId/windowId 作为硬约束，其余字段都按可选上下文处理。
+    // storage.local 里持久化的锁账本也以这层归一化结果为准，避免旧脏数据把复用/清理链拖偏。
     const normalizeDetachedWindowLockEntry = value => {
       const groupId = normalizeWindowGroupId(value?.groupId);
       const windowId = normalizePositiveNumber(value?.windowId);
@@ -67,6 +75,8 @@
       };
     };
 
+    // detached lock 读取边界：从 storage.local 拉全量账本后逐项归一化，
+    // 无效 entry 直接丢弃，不把坏数据继续传给 open/reuse/cleanup 主链。
     const readDetachedWindowLocks = async () => {
       try {
         const stored = await chromeApi.storage.local.get(locksStorageKey);
@@ -88,6 +98,7 @@
       }
     };
 
+    // detached lock 写入边界：调用方必须先完成归一化；这里仅负责原样落盘。
     const writeDetachedWindowLocks = async locks => {
       await chromeApi.storage.local.set({
         [locksStorageKey]: locks
@@ -95,6 +106,9 @@
       return locks;
     };
 
+    // detached lock upsert 边界：
+    // 以 groupId 作为唯一主键覆盖账本里的当前记录；
+    // 调用方不需要关心旧 entry 是否存在，只要提供当前最新的窗口上下文即可。
     const upsertDetachedWindowLock = async entry => {
       const normalizedEntry = normalizeDetachedWindowLockEntry({
         ...entry,
@@ -110,6 +124,9 @@
       return normalizedEntry;
     };
 
+    // detached lock 反向清理入口：
+    // 关闭 popup / 监听窗口销毁时，通常只拿得到 windowId，
+    // 这里负责把 windowId 反查回 group 锁并统一移除。
     const removeDetachedWindowLockByWindowId = async windowIdValue => {
       const windowId = normalizePositiveNumber(windowIdValue);
       if (windowId === null) {
@@ -134,33 +151,40 @@
       return removedLocks;
     };
 
+    // detached window URL 契约：
+    // 只编码 mode/tabId/groupId 三个字段，用来让 service worker 和 sidepanel 在“同组独立窗”上对账。
     const buildDetachedWindowUrl = ({
       tabId,
       groupId
-    }) => chromeApi.runtime.getURL(`${pagePath}?mode=window&tabId=${encodeURIComponent(tabId)}&groupId=${encodeURIComponent(groupId)}`);
+    }) => chromeApi.runtime.getURL(`${pagePath}?${detachedWindowQueryKeyMode}=${detachedWindowQueryMode}&${detachedWindowQueryKeyTabId}=${encodeURIComponent(tabId)}&${detachedWindowQueryKeyGroupId}=${encodeURIComponent(groupId)}`);
 
+    // detached window URL 解析边界：
+    // 只认扩展自己的 sidepanel window URL，其他 popup 页面一律忽略，
+    // 这样 find/reuse/sweep 都不会被无关 popup 污染。
     const parseDetachedWindowUrl = url => {
       try {
         const parsedUrl = new URL(String(url || ""));
         if (parsedUrl.origin !== pageMeta.origin || parsedUrl.pathname !== pageMeta.pathname) {
           return null;
         }
-        if (parsedUrl.searchParams.get("mode") !== "window") {
+        if (parsedUrl.searchParams.get(detachedWindowQueryKeyMode) !== detachedWindowQueryMode) {
           return null;
         }
-        const groupId = normalizeWindowGroupId(parsedUrl.searchParams.get("groupId"));
+        const groupId = normalizeWindowGroupId(parsedUrl.searchParams.get(detachedWindowQueryKeyGroupId));
         if (groupId === null) {
           return null;
         }
         return {
           groupId,
-          tabId: normalizePositiveNumber(parsedUrl.searchParams.get("tabId"))
+          tabId: normalizePositiveNumber(parsedUrl.searchParams.get(detachedWindowQueryKeyTabId))
         };
       } catch {
         return null;
       }
     };
 
+    // detached window 始终挂在一个真实的 chrome tab group 上；
+    // 如果主 tab 还没进组，这里会先补 group，再把 groupId/hostWindowId 统一收口。
     const ensureDetachedWindowGroupContext = async preferredTabId => {
       const tabId = normalizePositiveNumber(preferredTabId);
       if (tabId === null) {
@@ -185,6 +209,8 @@
       };
     };
 
+    // 清理顺序固定：先删锁，再尝试关窗。
+    // 这样即使 popup window 已经被用户手动关掉，也不会让锁账本残留。
     const closeDetachedWindowForLockEntry = async lockEntryValue => {
       const lockEntry = normalizeDetachedWindowLockEntry(lockEntryValue);
       if (!lockEntry) {
@@ -201,6 +227,9 @@
       return true;
     };
 
+    // detached window 查找链：
+    // 不直接信任 storage.local 里的锁，而是回扫真实 popup + URL，
+    // 只有“窗口仍存在且 URL 仍属于该 group”时才算可复用目标。
     const findDetachedWindowByGroupId = async groupIdValue => {
       const groupId = normalizeWindowGroupId(groupIdValue);
       if (groupId === null) {
@@ -211,7 +240,7 @@
         populate: true
       });
       for (const popupWindow of popupWindows) {
-        if (popupWindow?.type !== "popup") {
+        if (popupWindow?.type !== detachedWindowChromePopupType) {
           continue;
         }
         for (const popupTab of popupWindow.tabs || []) {
@@ -255,7 +284,7 @@
           tabId,
           groupId
         }),
-        type: "popup",
+        type: detachedWindowChromePopupType,
         width: detachedWindowSize.width,
         height: detachedWindowSize.height,
         left: detachedWindowSize.left,
@@ -271,6 +300,10 @@
       };
     };
 
+    // detached lock 巡检链：
+    // 1) 只保留当前还能在 windows.getAll 中找到的 popup
+    // 2) 用主 tab 的最新 windowId 回填 hostWindowId
+    // 3) 让后续 openDetachedWindowForGroup 的“复用/新开”判定只面对干净账本
     const sweepDetachedWindowLocks = async () => {
       const existingLocks = await readDetachedWindowLocks();
       const nextLocks = {};
@@ -314,20 +347,25 @@
       return nextLocks;
     };
 
+    // openDetachedWindowForGroup 的职责边界：
+    // 1) 先清扫锁账本，避免拿过期 popup 做复用
+    // 2) 解析主 tab -> group 上下文
+    // 3) 同 group 已有 popup 就复用并刷新 URL
+    // 4) 否则新建 popup，并把 lock/mainTabId/hostWindowId 一并落盘
     const openDetachedWindowForGroup = async payload => {
       await sweepDetachedWindowLocks();
-      const preferredTabId = normalizePositiveNumber(payload?.mainTabId) ?? normalizePositiveNumber(payload?.tabId);
+      const preferredMainTabId = normalizePositiveNumber(payload?.mainTabId) ?? normalizePositiveNumber(payload?.tabId);
       const {
         tabId,
         groupId,
         hostWindowId
-      } = await ensureDetachedWindowGroupContext(preferredTabId);
-      const existingDetachedWindow = await findDetachedWindowByGroupId(groupId);
+      } = await ensureDetachedWindowGroupContext(preferredMainTabId);
+      const existingDetachedWindowForGroup = await findDetachedWindowByGroupId(groupId);
 
-      if (existingDetachedWindow && existingDetachedWindow.windowId !== null) {
+      if (existingDetachedWindowForGroup && existingDetachedWindowForGroup.windowId !== null) {
         try {
-          if (existingDetachedWindow.tabId && existingDetachedWindow.meta?.tabId !== tabId) {
-            await chromeApi.tabs.update(existingDetachedWindow.tabId, {
+          if (existingDetachedWindowForGroup.tabId && existingDetachedWindowForGroup.meta?.tabId !== tabId) {
+            await chromeApi.tabs.update(existingDetachedWindowForGroup.tabId, {
               url: buildDetachedWindowUrl({
                 tabId,
                 groupId
@@ -335,11 +373,11 @@
               active: true
             });
           }
-          await focusDetachedWindow(existingDetachedWindow);
+          await focusDetachedWindow(existingDetachedWindowForGroup);
           await upsertDetachedWindowLock({
             groupId,
-            windowId: existingDetachedWindow.windowId,
-            popupTabId: existingDetachedWindow.tabId,
+            windowId: existingDetachedWindowForGroup.windowId,
+            popupTabId: existingDetachedWindowForGroup.tabId,
             mainTabId: tabId,
             hostWindowId
           });
@@ -347,8 +385,8 @@
             success: true,
             reused: true,
             groupId,
-            windowId: existingDetachedWindow.windowId,
-            popupTabId: existingDetachedWindow.tabId
+            windowId: existingDetachedWindowForGroup.windowId,
+            popupTabId: existingDetachedWindowForGroup.tabId
           };
         } catch (error) {
           consoleApi.warn?.("[detached-window] failed to reuse popup", {

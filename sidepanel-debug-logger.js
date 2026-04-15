@@ -3,10 +3,13 @@
     return;
   }
   const contract = globalThis.__CP_CONTRACT__ || {};
+  const authContract = contract.auth || {};
+  const modelsContract = contract.models || {};
   const providerContract = contract.customProvider || {};
+  const permissionManagerContract = contract.permissionManager || {};
   const debugContract = contract.debug || {};
-  const STORAGE_KEY = "sidepanelDebugLogs";
-  const META_KEY = "sidepanelDebugMeta";
+  const STORAGE_KEY = debugContract.SIDEPANEL_LOGS_STORAGE_KEY || "sidepanelDebugLogs";
+  const META_KEY = debugContract.SIDEPANEL_META_STORAGE_KEY || "sidepanelDebugMeta";
   const MAX_ENTRIES = 500;
   const FLUSH_DELAY_MS = 150;
   const SESSION_ID = "sp-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
@@ -16,13 +19,13 @@
       : [
         providerContract.STORAGE_KEY || "customProviderConfig",
         providerContract.ANTHROPIC_API_KEY_STORAGE_KEY || "anthropicApiKey",
-        "accessToken",
-        "refreshToken",
-        "lastAuthFailureReason",
+        authContract.ACCESS_TOKEN_STORAGE_KEY || "accessToken",
+        authContract.REFRESH_TOKEN_STORAGE_KEY || "refreshToken",
+        authContract.LAST_AUTH_FAILURE_REASON_STORAGE_KEY || "lastAuthFailureReason",
         providerContract.SELECTED_MODEL_STORAGE_KEY || "selectedModel",
         providerContract.SELECTED_MODEL_QUICK_MODE_STORAGE_KEY || "selectedModelQuickMode",
-        "lastPermissionModePreference",
-        "chrome_ext_models"
+        permissionManagerContract.LAST_PERMISSION_MODE_PREFERENCE_STORAGE_KEY || "lastPermissionModePreference",
+        modelsContract.CONFIG_STORAGE_KEY || "chrome_ext_models"
       ]
   );
   const SENSITIVE_KEYS = new Set(["apikey", "anthropicapikey", "accesstoken", "refreshtoken", "authtoken", "authorization", "token", "secret", "password", "currentapikey", "originalapikey"]);

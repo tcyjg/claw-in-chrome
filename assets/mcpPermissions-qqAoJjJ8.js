@@ -1,7 +1,8 @@
 import { G as e, H as t, S as r, I as o, J as a, K as n, L as s, W as i, T as c, R as l, M as d, N as u, O as h, j as p, x as m, z as f, g, s as b, c as w, m as y, w as _, e as v, P as I } from "./PermissionManager-9s959502.js";
 import { R as k } from "./index-BVS4T5_D.js";
-const __cpBackgroundDebugStorageKey = "sidepanelDebugLogs";
-const __cpBackgroundDebugMetaKey = "sidepanelDebugMeta";
+const __cpDebugContract = globalThis.__CP_CONTRACT__?.debug || {};
+const __cpBackgroundDebugStorageKey = __cpDebugContract.SIDEPANEL_LOGS_STORAGE_KEY || "sidepanelDebugLogs";
+const __cpBackgroundDebugMetaKey = __cpDebugContract.SIDEPANEL_META_STORAGE_KEY || "sidepanelDebugMeta";
 const __cpBackgroundDebugLimit = 500;
 let __cpBackgroundDebugSequence = 0;
 async function __cpBackgroundDebugLog(e, t = {}, r = "info") {
@@ -500,7 +501,7 @@ class B {
         if (e.id) {
           try {
             await chrome.tabs.sendMessage(e.id, {
-              type: "HIDE_STATIC_INDICATOR"
+              type: __cpAgentIndicatorRuntimeMessageTypeHideStaticIndicator
             });
           } catch (r) {}
         }
@@ -549,9 +550,9 @@ class B {
           const t = n.memberStates.get(e);
           const s = t?.indicatorState || "none";
           try {
-            let t = "HIDE_AGENT_INDICATORS";
+            let t = __cpAgentIndicatorRuntimeMessageTypeHideAgentIndicators;
             if (s === "static") {
-              t = "HIDE_STATIC_INDICATOR";
+              t = __cpAgentIndicatorRuntimeMessageTypeHideStaticIndicator;
             }
             await this.sendIndicatorMessage(e, t);
           } catch (r) {}
@@ -585,7 +586,7 @@ class B {
               }
               if (e === "pulsing") {
                 try {
-                  await this.sendIndicatorMessage(a, "SHOW_AGENT_INDICATORS");
+                  await this.sendIndicatorMessage(a, __cpAgentIndicatorRuntimeMessageTypeShowAgentIndicators);
                 } catch (o) {}
               }
               this.groupMetadata.set(a, n);
@@ -639,7 +640,7 @@ class B {
               const a = 500;
               const n = async () => {
                 try {
-                  await this.sendIndicatorMessage(e, "SHOW_STATIC_INDICATOR");
+                  await this.sendIndicatorMessage(e, __cpAgentIndicatorRuntimeMessageTypeShowStaticIndicator);
                   return true;
                 } catch (r) {
                   t++;
@@ -666,7 +667,7 @@ class B {
       for (const e of r) {
         if (e.id && e.id !== t) {
           try {
-            await this.sendIndicatorMessage(e.id, "HIDE_STATIC_INDICATOR");
+            await this.sendIndicatorMessage(e.id, __cpAgentIndicatorRuntimeMessageTypeHideStaticIndicator);
           } catch {}
         }
       }
@@ -714,7 +715,7 @@ class B {
         }
         if (t.indicatorState === "pulsing") {
           try {
-            await this.sendIndicatorMessage(e, "SHOW_AGENT_INDICATORS");
+            await this.sendIndicatorMessage(e, __cpAgentIndicatorRuntimeMessageTypeShowAgentIndicators);
           } catch (r) {}
         }
         this.groupMetadata.set(e, t.metadata);
@@ -745,7 +746,7 @@ class B {
             }
             if (t.indicatorState === "pulsing") {
               try {
-                await this.sendIndicatorMessage(e, "SHOW_AGENT_INDICATORS");
+                await this.sendIndicatorMessage(e, __cpAgentIndicatorRuntimeMessageTypeShowAgentIndicators);
               } catch (r) {}
             }
             this.groupMetadata.set(e, t.metadata);
@@ -922,7 +923,7 @@ class B {
         if (t !== e && !a) {
           try {
             await chrome.tabs.sendMessage(t, {
-              type: "SHOW_STATIC_INDICATOR"
+              type: __cpAgentIndicatorRuntimeMessageTypeShowStaticIndicator
             });
           } catch {}
         }
@@ -1026,7 +1027,7 @@ class B {
               for (const e of r) {
                 n.memberStates.delete(e);
                 try {
-                  await this.sendIndicatorMessage(e, "HIDE_AGENT_INDICATORS");
+                  await this.sendIndicatorMessage(e, __cpAgentIndicatorRuntimeMessageTypeHideAgentIndicators);
                 } catch {}
               }
               o = true;
@@ -1149,20 +1150,20 @@ class B {
     try {
       await chrome.tabs.get(e);
       if (o.indicatorState === "pulsing") {
-        await this.sendIndicatorMessage(e, "HIDE_AGENT_INDICATORS");
+        await this.sendIndicatorMessage(e, __cpAgentIndicatorRuntimeMessageTypeHideAgentIndicators);
       }
     } catch {}
     r.memberStates.get(t);
     r.mainTabId = t;
     try {
-      await this.sendIndicatorMessage(t, "HIDE_STATIC_INDICATOR");
+      await this.sendIndicatorMessage(t, __cpAgentIndicatorRuntimeMessageTypeHideStaticIndicator);
       r.memberStates.delete(t);
     } catch (a) {}
     if (o.indicatorState === "pulsing") {
       r.memberStates.set(t, {
         indicatorState: "pulsing"
       });
-      await this.sendIndicatorMessage(t, "SHOW_AGENT_INDICATORS");
+      await this.sendIndicatorMessage(t, __cpAgentIndicatorRuntimeMessageTypeShowAgentIndicators);
     } else {
       r.memberStates.set(t, {
         indicatorState: "none"
@@ -1186,10 +1187,10 @@ class B {
               if (t.id) {
                 try {
                   await chrome.tabs.sendMessage(t.id, {
-                    type: "HIDE_AGENT_INDICATORS"
+                    type: __cpAgentIndicatorRuntimeMessageTypeHideAgentIndicators
                   });
                   await chrome.tabs.sendMessage(t.id, {
-                    type: "HIDE_STATIC_INDICATOR"
+                    type: __cpAgentIndicatorRuntimeMessageTypeHideStaticIndicator
                   });
                 } catch {}
               }
@@ -1565,7 +1566,7 @@ class B {
       if (a.id && a.id !== r) {
         try {
           await chrome.tabs.sendMessage(a.id, {
-            type: "SHOW_STATIC_INDICATOR"
+            type: __cpAgentIndicatorRuntimeMessageTypeShowStaticIndicator
           });
         } catch (o) {}
       }
@@ -1593,7 +1594,7 @@ class B {
           break;
         }
       }
-      await this.sendIndicatorMessage(e, "HIDE_FOR_TOOL_USE");
+      await this.sendIndicatorMessage(e, __cpAgentIndicatorRuntimeMessageTypeHideForToolUse);
     } catch (t) {}
   }
   async restoreIndicatorAfterToolUse(e) {
@@ -1612,15 +1613,15 @@ class B {
           let a;
           switch (o) {
             case "pulsing":
-              a = "SHOW_AGENT_INDICATORS";
+              a = __cpAgentIndicatorRuntimeMessageTypeShowAgentIndicators;
               break;
             case "static":
-              a = "SHOW_STATIC_INDICATOR";
+              a = __cpAgentIndicatorRuntimeMessageTypeShowStaticIndicator;
               break;
             case "none":
               return;
             default:
-              a = "SHOW_AFTER_TOOL_USE";
+              a = __cpAgentIndicatorRuntimeMessageTypeShowAfterToolUse;
           }
           await this.sendIndicatorMessage(e, a);
           break;
@@ -2099,13 +2100,13 @@ class B {
           let e;
           switch (r.pendingUpdate) {
             case "pulsing":
-              e = "SHOW_AGENT_INDICATORS";
+              e = __cpAgentIndicatorRuntimeMessageTypeShowAgentIndicators;
               break;
             case "static":
-              e = "SHOW_STATIC_INDICATOR";
+              e = __cpAgentIndicatorRuntimeMessageTypeShowStaticIndicator;
               break;
             case "none":
-              e = "HIDE_AGENT_INDICATORS";
+              e = __cpAgentIndicatorRuntimeMessageTypeHideAgentIndicators;
               break;
             default:
               continue;
@@ -6120,8 +6121,23 @@ const xe = new class {
   }
 }();
 const Se = "mcp-native-session";
+// 语义锚点：gif_creator 工具协议（action / upload / offscreen GIF 生成消息）。
+const __cpGifCreatorToolName = "gif_creator";
+const __cpGifCreatorActionStartRecording = "start_recording";
+const __cpGifCreatorActionStopRecording = "stop_recording";
+const __cpGifCreatorActionExport = "export";
+const __cpGifCreatorActionClear = "clear";
+const __cpGifCreatorFieldCoordinate = "coordinate";
+const __cpGifCreatorFieldDownload = "download";
+const __cpGifCreatorFieldFilename = "filename";
+const __cpGifCreatorContractMessages = globalThis.__CP_CONTRACT__?.messages || {};
+const __cpGifCreatorOffscreenMessageTypeGenerateGif = __cpGifCreatorContractMessages.GENERATE_GIF || "GENERATE_GIF";
+const __cpGifCreatorOffscreenMessageTypeRevokeBlobUrl = __cpGifCreatorContractMessages.REVOKE_BLOB_URL || "REVOKE_BLOB_URL";
+const __cpGifCreatorFilenamePrefix = "recording-";
+const __cpGifCreatorFilenameExtension = ".gif";
+const __cpGifCreatorPermissionDeniedMessage = "Permission denied for uploading to this domain";
 const Ee = {
-  name: "gif_creator",
+  name: __cpGifCreatorToolName,
   description: "Manage GIF recording and export for browser automation sessions. Control when to start/stop recording browser actions (clicks, scrolls, navigation), then export as an animated GIF with visual overlays (click indicators, action labels, progress bar, watermark). All operations are scoped to the tab's group. When starting recording, take a screenshot immediately after to capture the initial state as the first frame. When stopping recording, take a screenshot immediately before to capture the final state as the last frame. For export, either provide 'coordinate' to drag/drop upload to a page element, or set 'download: true' to download the GIF.",
   parameters: {
     action: {
@@ -6171,8 +6187,9 @@ const Ee = {
           };
         }
       }
+      // 语义锚点：GIF 录制/导出主状态机（start/stop/export/clear）。
       switch (o.action) {
-        case "start_recording":
+        case __cpGifCreatorActionStartRecording:
           return await async function (e) {
             const t = xe.isRecording(e);
             if (t) {
@@ -6186,7 +6203,7 @@ const Ee = {
               output: "Started recording browser actions for this tab group. All computer and navigate tool actions will now be captured (max 50 frames). Previous frames cleared."
             };
           }(n);
-        case "stop_recording":
+        case __cpGifCreatorActionStopRecording:
           return await async function (e) {
             const t = xe.isRecording(e);
             if (!t) {
@@ -6200,10 +6217,10 @@ const Ee = {
               output: `Stopped recording for this tab group. Captured ${r} frame${r === 1 ? "" : "s"}. Use 'export' to generate GIF or 'clear' to discard.`
             };
           }(n);
-        case "export":
+        case __cpGifCreatorActionExport:
           return await async function (e, t, r, o) {
-            const a = e.download === true;
-            if (!a && (!e.coordinate || e.coordinate.length !== 2)) {
+            const a = e[__cpGifCreatorFieldDownload] === true;
+            if (!a && (!e[__cpGifCreatorFieldCoordinate] || e[__cpGifCreatorFieldCoordinate].length !== 2)) {
               throw new Error("coordinate parameter is required for export action (or set download: true to download the GIF)");
             }
             if (!t.id || !t.url) {
@@ -6220,6 +6237,7 @@ const Ee = {
               const a = o?.toolUseId;
               const n = await o.permissionManager.checkPermission(r, a);
               if (!n.allowed) {
+                // 语义锚点：GIF 导出上传前的 permission_required 产出点。
                 if (n.needsPrompt) {
                   return {
                     type: "permission_required",
@@ -6227,12 +6245,12 @@ const Ee = {
                     url: r,
                     toolUseId: a,
                     actionData: {
-                      coordinate: e.coordinate
+                      coordinate: e[__cpGifCreatorFieldCoordinate]
                     }
                   };
                 }
                 return {
-                  error: "Permission denied for uploading to this domain"
+                  error: __cpGifCreatorPermissionDeniedMessage
                 };
               }
             }
@@ -6257,7 +6275,7 @@ const Ee = {
             };
             const d = await new Promise((e, t) => {
               chrome.runtime.sendMessage({
-                type: "GENERATE_GIF",
+                type: __cpGifCreatorOffscreenMessageTypeGenerateGif,
                 frames: i,
                 options: l
               }, r => {
@@ -6271,11 +6289,11 @@ const Ee = {
               });
             });
             const u = new Date().toISOString().replace(/[:.]/g, "-");
-            const h = e.filename || `recording-${u}.gif`;
+            const h = e[__cpGifCreatorFieldFilename] || `${__cpGifCreatorFilenamePrefix}${u}${__cpGifCreatorFilenameExtension}`;
             let p;
             const m = () => {
               chrome.runtime.sendMessage({
-                type: "REVOKE_BLOB_URL",
+                type: __cpGifCreatorOffscreenMessageTypeRevokeBlobUrl,
                 blobUrl: d.blobUrl
               });
             };
@@ -6304,6 +6322,7 @@ const Ee = {
                 }
                 p = `Successfully exported GIF with ${n.length} frames. Downloaded "${h}" (${Math.round(d.size / 1024)}KB). Dimensions: ${d.width}x${d.height}. Recording cleared.`;
               } else {
+                // 语义锚点：GIF 导出后的页面内拖拽上传分支（DataTransfer + dragenter/dragover/drop）。
                 const r = await A(t.id, s, "GIF export upload action");
                 if (r) {
                   return r;
@@ -6357,7 +6376,7 @@ const Ee = {
                       output: `Successfully dropped ${t} (${Math.round(i.size / 1024)}KB) at (${r}, ${o})`
                     };
                   },
-                  args: [d.base64, h, e.coordinate[0], e.coordinate[1]]
+                  args: [d.base64, h, e[__cpGifCreatorFieldCoordinate][0], e[__cpGifCreatorFieldCoordinate][1]]
                 });
                 if (!o || !o[0]?.result) {
                   throw new Error("Failed to upload GIF to page");
@@ -6381,7 +6400,7 @@ const Ee = {
               }
             };
           }(o, a, n, t);
-        case "clear":
+        case __cpGifCreatorActionClear:
           return await async function (e) {
             const t = xe.getFrameCount(e);
             if (t === 0) {
@@ -6395,7 +6414,7 @@ const Ee = {
             };
           }(n);
         default:
-          throw new Error(`Unknown action: ${o.action}. Must be one of: start_recording, stop_recording, export, clear`);
+          throw new Error(`Unknown action: ${o.action}. Must be one of: ${__cpGifCreatorActionStartRecording}, ${__cpGifCreatorActionStopRecording}, ${__cpGifCreatorActionExport}, ${__cpGifCreatorActionClear}`);
       }
     } catch (o) {
       return {
@@ -6404,7 +6423,7 @@ const Ee = {
     }
   },
   toAnthropicSchema: async () => ({
-    name: "gif_creator",
+    name: __cpGifCreatorToolName,
     description: "Manage GIF recording and export for browser automation sessions. Control when to start/stop recording browser actions (clicks, scrolls, navigation), then export as an animated GIF with visual overlays (click indicators, action labels, progress bar, watermark). All operations are scoped to the tab's group. When starting recording, take a screenshot immediately after to capture the initial state as the first frame. When stopping recording, take a screenshot immediately before to capture the final state as the last frame. For export, either provide 'coordinate' to drag/drop upload to a page element, or set 'download: true' to download the GIF.",
     input_schema: {
       type: "object",
@@ -11893,10 +11912,63 @@ let ka = null;
 const Ta = Date.now();
 let xa;
 async function Sa() {
-  return (await chrome.storage.local.get("bridgeDisplayName")).bridgeDisplayName;
+  return (await chrome.storage.local.get(__cpMcpBridgeDisplayNameStorageKey))[__cpMcpBridgeDisplayNameStorageKey];
 }
 const Ea = "bridge-keepalive";
+/*
+ * 第一轮解混淆计划（background / MCP permission promise 子链）：
+ * 1. 固定 bridge permission_request -> permission_response 的 requestId 账本。
+ * 2. 固定 storage prompt -> popup -> runtime MCP_PERMISSION_RESPONSE -> timeout 的 background 主链。
+ * 3. 固定 requestId / toolUseId / tabId 的职责边界，并明确 pairing_dismissed 属于配对链 no-op，不参与 permission promise 解析。
+ */
 const Ca = new Map();
+// 语义锚点：bridge permission_request 待回包账本（key=requestId -> { resolve }）。
+const __cpMcpBridgePendingPermissionResponseLedger = Ca;
+// 语义锚点：MCP Bridge keepalive alarm 名称（用于 service worker 侧保活）
+const __cpMcpBridgeKeepaliveAlarmName = Ea;
+const __cpMcpBridgeKeepalivePingIntervalMs = 20000;
+const __cpMcpBridgeRefreshProbeIntervalMs = 1800000;
+const __cpMcpBridgeAlarmPeriodMinutes = 0.5;
+
+// 语义锚点：MCP Bridge storage key（配对/设备信息）
+const __cpMcpBridgeDisplayNameStorageKey = "bridgeDisplayName";
+const __cpMcpBridgeDeviceIdStorageKey = "bridgeDeviceId";
+
+// 语义锚点：MCP Bridge WebSocket URL 前缀（桌面端桥接）
+const __cpMcpBridgeWebSocketUrlPrefix = "wss://bridge.claudeusercontent.com/chrome/";
+const __cpMcpBridgeSocketMessageTypeConnect = "connect";
+const __cpMcpBridgeSocketMessageTypePaired = "paired";
+const __cpMcpBridgeSocketMessageTypeWaiting = "waiting";
+const __cpMcpBridgeSocketMessageTypePing = "ping";
+const __cpMcpBridgeSocketMessageTypePong = "pong";
+const __cpMcpBridgeSocketMessageTypePeerConnected = "peer_connected";
+const __cpMcpBridgeSocketMessageTypePeerDisconnected = "peer_disconnected";
+const __cpMcpBridgeSocketMessageTypeNotification = "notification";
+const __cpMcpBridgeSocketMessageTypePermissionRequest = "permission_request";
+const __cpMcpBridgeSocketMessageTypePairingResponse = "pairing_response";
+const __cpMcpBridgeSocketMessageTypeError = "error";
+const __cpMcpBridgeSocketFieldClientType = "client_type";
+const __cpMcpBridgeSocketFieldTargetDeviceId = "target_device_id";
+const __cpMcpBridgeSocketFieldDeviceId = "device_id";
+const __cpMcpBridgeSocketFieldDisplayName = "display_name";
+const __cpMcpBridgeSocketFieldCurrentName = "current_name";
+const __cpMcpBridgeSocketFieldRequestId = "request_id";
+const __cpMcpBridgeSocketFieldToolUseId = "tool_use_id";
+const __cpMcpBridgeSocketFieldTool = "tool";
+const __cpMcpBridgeSocketFieldArgs = "args";
+const __cpMcpBridgeSocketFieldPermissionMode = "permission_mode";
+const __cpMcpBridgeSocketFieldAllowedDomains = "allowed_domains";
+const __cpMcpBridgeSocketFieldHandlePermissionPrompts = "handle_permission_prompts";
+const __cpMcpBridgeSocketFieldSessionScope = "session_scope";
+const __cpMcpBridgeSocketFieldAllowed = "allowed";
+const __cpMcpBridgeSocketFieldToolType = "tool_type";
+const __cpMcpBridgeSocketFieldUrl = "url";
+const __cpMcpBridgeSocketFieldActionData = "action_data";
+const __cpMcpBridgeSocketFieldMethod = "method";
+const __cpMcpBridgeSocketFieldParams = "params";
+const __cpMcpBridgeToolResultTextContentType = "text";
+const __cpMcpBridgeClientTypeChromeExtension = "chrome-extension";
+const __cpMcpBridgeDefaultPeerClientType = "desktop";
 function Ma() {
   try {
     const e = navigator.userAgentData;
@@ -11909,14 +11981,14 @@ async function Da() {
   if (va) {
     return va;
   }
-  const e = await chrome.storage.local.get("bridgeDeviceId");
-  if (e.bridgeDeviceId) {
-    va = e.bridgeDeviceId;
+  const e = await chrome.storage.local.get(__cpMcpBridgeDeviceIdStorageKey);
+  if (e[__cpMcpBridgeDeviceIdStorageKey]) {
+    va = e[__cpMcpBridgeDeviceIdStorageKey];
     return va;
   } else {
     va = crypto.randomUUID();
     await chrome.storage.local.set({
-      bridgeDeviceId: va
+      [__cpMcpBridgeDeviceIdStorageKey]: va
     });
     return va;
   }
@@ -11926,10 +11998,10 @@ function Ra() {
   _a = setInterval(() => {
     if (ga?.readyState === WebSocket.OPEN) {
       ga.send(JSON.stringify({
-        type: "ping"
+        type: __cpMcpBridgeSocketMessageTypePing
       }));
     }
-  }, 20000);
+  }, __cpMcpBridgeKeepalivePingIntervalMs);
 }
 function Aa() {
   if (_a) {
@@ -11972,14 +12044,15 @@ async function Pa() {
       if (ga !== i) {
         return;
       }
+      // 语义锚点：bridge 连接握手 payload（connect / client_type / device_id / display_name）
       const t = {
-        type: "connect",
-        client_type: "chrome-extension",
-        device_id: a,
+        type: __cpMcpBridgeSocketMessageTypeConnect,
+        [__cpMcpBridgeSocketFieldClientType]: __cpMcpBridgeClientTypeChromeExtension,
+        [__cpMcpBridgeSocketFieldDeviceId]: a,
         os_platform: Ma(),
         extension_version: chrome.runtime.getManifest().version,
         ...(n && {
-          display_name: n
+          [__cpMcpBridgeSocketFieldDisplayName]: n
         })
       };
       if (!e) {
@@ -11991,9 +12064,10 @@ async function Pa() {
       if (ga === i) {
         try {
           const t = JSON.parse(e.data);
+          // 语义锚点：bridge 入站消息分发（paired/waiting/ping/tool_call/pairing_request/permission_response）
           await async function (e) {
             switch (e.type) {
-              case "paired":
+              case __cpMcpBridgeSocketMessageTypePaired:
                 m("claude_chrome.bridge.connected", {
                   status: "paired",
                   sw_uptime_ms: Date.now() - Ta,
@@ -12004,7 +12078,7 @@ async function Pa() {
                 ba = false;
                 ya = 0;
                 break;
-              case "waiting":
+              case __cpMcpBridgeSocketMessageTypeWaiting:
                 m("claude_chrome.bridge.connected", {
                   status: "waiting",
                   sw_uptime_ms: Date.now() - Ta,
@@ -12015,33 +12089,33 @@ async function Pa() {
                 ba = false;
                 ya = 0;
                 break;
-              case "ping":
+              case __cpMcpBridgeSocketMessageTypePing:
                 La({
-                  type: "pong"
+                  type: __cpMcpBridgeSocketMessageTypePong
                 });
                 break;
-              case "pong":
+              case __cpMcpBridgeSocketMessageTypePong:
                 break;
-              case "peer_connected":
+              case __cpMcpBridgeSocketMessageTypePeerConnected:
                 m("claude_chrome.bridge.peer_connected");
                 break;
-              case "peer_disconnected":
+              case __cpMcpBridgeSocketMessageTypePeerDisconnected:
                 m("claude_chrome.bridge.peer_disconnected");
                 break;
-              case "tool_call":
+              case __cpMcpBridgeSocketMessageTypeToolCall:
                 await async function (e) {
-                  const t = e.target_device_id;
+                  const t = e[__cpMcpBridgeSocketFieldTargetDeviceId];
                   if (t && t !== ka) {
                     return;
                   }
-                  const o = e.tool_use_id;
-                  const a = e.tool;
-                  const n = e.client_type || "desktop";
-                  const s = e.args ?? {};
-                  const i = e.permission_mode;
-                  const c = e.allowed_domains;
-                  const l = e.handle_permission_prompts === true;
-                  const d = e.session_scope;
+                  const o = e[__cpMcpBridgeSocketFieldToolUseId];
+                  const a = e[__cpMcpBridgeSocketFieldTool];
+                  const n = e[__cpMcpBridgeSocketFieldClientType] || __cpMcpBridgeDefaultPeerClientType;
+                  const s = e[__cpMcpBridgeSocketFieldArgs] ?? {};
+                  const i = e[__cpMcpBridgeSocketFieldPermissionMode];
+                  const c = e[__cpMcpBridgeSocketFieldAllowedDomains];
+                  const l = e[__cpMcpBridgeSocketFieldHandlePermissionPrompts] === true;
+                  const d = e[__cpMcpBridgeSocketFieldSessionScope];
                   if (!o || !a) {
                     return;
                   }
@@ -12062,11 +12136,11 @@ async function Pa() {
                       error: "session_expired"
                     });
                     La({
-                      type: "tool_result",
-                      tool_use_id: o,
+                      type: __cpMcpBridgeSocketMessageTypeToolResult,
+                      [__cpMcpBridgeSocketFieldToolUseId]: o,
                       error: {
                         content: [{
-                          type: "text",
+                          type: __cpMcpBridgeToolResultTextContentType,
                           text: "Authentication failed. Please check your custom provider settings in Claw in Chrome."
                         }]
                       }
@@ -12085,11 +12159,11 @@ async function Pa() {
                           error: "tab_not_found"
                         });
                         La({
-                          type: "tool_result",
-                          tool_use_id: o,
+                          type: __cpMcpBridgeSocketMessageTypeToolResult,
+                          [__cpMcpBridgeSocketFieldToolUseId]: o,
                           error: {
                             content: [{
-                              type: "text",
+                              type: __cpMcpBridgeToolResultTextContentType,
                               text: `Tab ${h} no longer exists. Call tabs_context_mcp to get current tabs.`
                             }]
                           }
@@ -12118,8 +12192,8 @@ async function Pa() {
                     });
                     La({
                       ...e,
-                      type: "tool_result",
-                      tool_use_id: o
+                      type: __cpMcpBridgeSocketMessageTypeToolResult,
+                      [__cpMcpBridgeSocketFieldToolUseId]: o
                     });
                   } catch (p) {
                     m("claude_chrome.bridge.tool_call", {
@@ -12128,11 +12202,11 @@ async function Pa() {
                       error: p instanceof Error ? p.message : String(p)
                     });
                     La({
-                      type: "tool_result",
-                      tool_use_id: o,
+                      type: __cpMcpBridgeSocketMessageTypeToolResult,
+                      [__cpMcpBridgeSocketFieldToolUseId]: o,
                       error: {
                         content: [{
-                          type: "text",
+                          type: __cpMcpBridgeToolResultTextContentType,
                           text: p instanceof Error ? p.message : String(p)
                         }]
                       }
@@ -12140,9 +12214,9 @@ async function Pa() {
                   }
                 }(e);
                 break;
-              case "pairing_request":
+              case __cpMcpBridgeSocketMessageTypePairingRequest:
                 await async function (e) {
-                  const t = e.request_id;
+                  const t = e[__cpMcpBridgeSocketFieldRequestId];
                   if (!t) {
                     return;
                   }
@@ -12150,40 +12224,42 @@ async function Pa() {
                     return;
                   }
                   qa = t;
-                  const r = e.client_type || "desktop";
+                  const r = e[__cpMcpBridgeSocketFieldClientType] || __cpMcpBridgeDefaultPeerClientType;
                   const o = await Sa();
                   try {
                     const e = await chrome.runtime.sendMessage({
-                      type: "show_pairing_prompt",
-                      request_id: t,
-                      client_type: r,
-                      current_name: o
+                      type: __cpMcpBridgeRuntimeMessageTypeShowPairingPrompt,
+                      [__cpMcpBridgeSocketFieldRequestId]: t,
+                      [__cpMcpBridgeSocketFieldClientType]: r,
+                      [__cpMcpBridgeSocketFieldCurrentName]: o
                     });
                     if (e?.handled) {
                       return;
                     }
                   } catch {}
-                  const a = chrome.runtime.getURL(`pairing.html?request_id=${encodeURIComponent(t)}&client_type=${encodeURIComponent(r)}&current_name=${encodeURIComponent(o || "")}`);
+                  const a = chrome.runtime.getURL(`pairing.html?${__cpMcpBridgePairingQueryKeyRequestId}=${encodeURIComponent(t)}&${__cpMcpBridgePairingQueryKeyClientType}=${encodeURIComponent(r)}&${__cpMcpBridgePairingQueryKeyCurrentName}=${encodeURIComponent(o || "")}`);
                   chrome.tabs.create({
                     url: a
                   });
                 }(e);
                 break;
-              case "permission_response":
+              case __cpMcpBridgeSocketMessageTypePermissionResponse:
                 (function (e) {
-                  const t = e.request_id;
+                  const t = e[__cpMcpBridgeSocketFieldRequestId];
                   if (!t) {
                     return;
                   }
-                  const r = Ca.get(t);
+                  const r = __cpMcpBridgePendingPermissionResponseLedger.get(t);
                   if (!r) {
                     return;
                   }
-                  Ca.delete(t);
-                  r.resolve(e.allowed ?? false);
+                  // 语义锚点：requestId 是 bridge permission_request/permission_response 的对账键；
+                  // toolUseId 只负责外层 tool_call/tool_result 归属，tabId 也不参与这一步 resolve。
+                  __cpMcpBridgePendingPermissionResponseLedger.delete(t);
+                  r.resolve(e[__cpMcpBridgeSocketFieldAllowed] ?? false);
                 })(e);
                 break;
-              case "error":
+              case __cpMcpBridgeSocketMessageTypeError:
                 ba = false;
             }
           }(t);
@@ -12241,16 +12317,17 @@ function $a() {
 }
 function Oa(e, t) {
   return !!$a() && (La({
-    type: "notification",
-    method: e,
-    params: t || {}
+    type: __cpMcpBridgeSocketMessageTypeNotification,
+    [__cpMcpBridgeSocketFieldMethod]: e,
+    [__cpMcpBridgeSocketFieldParams]: t || {}
   }), true);
 }
 function Ga() {
-  for (const [, e] of Ca) {
+  // 语义锚点：bridge 断连/重连时，未完成的 permission_request 一律按拒绝收口，避免 requestId 账本泄漏。
+  for (const [, e] of __cpMcpBridgePendingPermissionResponseLedger) {
     e.resolve(false);
   }
-  Ca.clear();
+  __cpMcpBridgePendingPermissionResponseLedger.clear();
 }
 function Na() {
   if (wa) {
@@ -12267,33 +12344,110 @@ function La(e) {
   if (ga?.readyState === WebSocket.OPEN) {
     ga.send(JSON.stringify(e));
   }
-  if (e.type === "tool_result" && e.tool_use_id) {
+  if (e.type === __cpMcpBridgeSocketMessageTypeToolResult && e[__cpMcpBridgeSocketFieldToolUseId]) {
     m("claude_chrome.bridge.result_sent", {
-      tool_use_id: e.tool_use_id,
+      tool_use_id: e[__cpMcpBridgeSocketFieldToolUseId],
       socket_state: ga?.readyState ?? -1,
       buffered_amount: ga?.bufferedAmount ?? -1,
       is_error: Boolean(e.error)
     });
   }
 }
+// 语义锚点：MCP Bridge 连接与消息发送入口（供后续定位/外提逻辑时搜索）
+const __cpMcpBridgeEnsureConnected = Pa;
+const __cpMcpBridgeSend = La;
+const __cpMcpBridgeIsConnected = $a;
+const __cpMcpBridgeNotify = Oa;
+const __cpMcpBridgeScheduleReconnect = Na;
+const __cpMcpBridgeClearPendingPermissionRequests = Ga;
+
+// 语义锚点：bridge 与扩展页面之间的消息类型
+const __cpMcpBridgeContractMessages = globalThis.__CP_CONTRACT__?.messages || {};
+const __cpMcpBridgeContract = globalThis.__CP_CONTRACT__?.mcpBridge || {};
+const __cpMcpPermissionPopupProtocol = globalThis.__CP_MCP_PERMISSION_POPUP_PROTOCOL__ || {};
+const __cpMcpBridgeRuntimeMessageFields = __cpMcpPermissionPopupProtocol.RESPONSE_FIELDS || __cpMcpBridgeContract.RUNTIME_MESSAGE_FIELDS || {};
+const __cpMcpPermissionPromptStorageFields = __cpMcpPermissionPopupProtocol.STORAGE_FIELDS || __cpMcpBridgeContract.PERMISSION_PROMPT_STORAGE_FIELDS || {};
+const __cpMcpPermissionPopupQueryKeys = __cpMcpPermissionPopupProtocol.QUERY_KEYS || __cpMcpBridgeContract.PERMISSION_POPUP_QUERY_KEYS || {};
+const __cpPairingContract = globalThis.__CP_CONTRACT__?.pairing || {};
+const __cpPairingQueryKeys = __cpPairingContract.QUERY_KEYS || {};
+const __cpAgentIndicatorContract = globalThis.__CP_CONTRACT__?.agentIndicator || {};
+const __cpAgentIndicatorRuntimeMessageTypes = __cpAgentIndicatorContract.RUNTIME_MESSAGE_TYPES || {};
+const __cpMcpBridgeRuntimeMessageTypePairingConfirmed = __cpMcpBridgeContractMessages.pairing_confirmed || "pairing_confirmed";
+const __cpMcpBridgeRuntimeMessageTypePairingDismissed = __cpMcpBridgeContractMessages.pairing_dismissed || "pairing_dismissed";
+const __cpMcpBridgeRuntimeMessageTypeShowPairingPrompt = __cpMcpBridgeContractMessages.show_pairing_prompt || "show_pairing_prompt";
+const __cpSidepanelRuntimeMessageTypeExecuteTask = __cpMcpBridgeContractMessages.EXECUTE_TASK || "EXECUTE_TASK";
+const __cpMcpBridgeRuntimeMessageTypeMcpPermissionResponse = __cpMcpBridgeContractMessages.MCP_PERMISSION_RESPONSE || "MCP_PERMISSION_RESPONSE";
+const __cpMcpBridgeRuntimeMessageFieldRequestId = __cpMcpBridgeRuntimeMessageFields.REQUEST_ID || "requestId";
+const __cpMcpBridgeRuntimeMessageFieldAllowed = __cpMcpBridgeRuntimeMessageFields.ALLOWED || "allowed";
+const __cpShortcutsExecuteQueryKeyMode = "mode";
+const __cpShortcutsExecuteQueryValueWindow = "window";
+const __cpShortcutsExecuteQueryKeySessionId = "sessionId";
+const __cpShortcutsExecuteQueryKeySkipPermissions = "skipPermissions";
+const __cpShortcutsExecuteQueryKeyModel = "model";
+const __cpShortcutsExecuteWindowTypePopup = "popup";
+const __cpShortcutsExecuteWindowWidth = 500;
+const __cpShortcutsExecuteWindowHeight = 768;
+const __cpShortcutsExecuteWindowLeft = 100;
+const __cpShortcutsExecuteWindowTop = 100;
+const __cpShortcutsExecuteSendDelayMs = 3000;
+const __cpShortcutsExecuteLoadPollIntervalMs = 500;
+const __cpShortcutsExecuteLoadTimeoutMs = 30000;
+const __cpMcpPermissionPromptStorageKeyPrefix = __cpMcpPermissionPopupProtocol.STORAGE_KEY_PREFIX || __cpMcpBridgeContract.PERMISSION_PROMPT_STORAGE_KEY_PREFIX || "mcp_prompt_";
+const __cpMcpPermissionPromptStorageFieldPrompt = __cpMcpPermissionPromptStorageFields.PROMPT || "prompt";
+const __cpMcpPermissionPromptStorageFieldTabId = __cpMcpPermissionPromptStorageFields.TAB_ID || "tabId";
+const __cpMcpPermissionPromptStorageFieldTimestamp = __cpMcpPermissionPromptStorageFields.TIMESTAMP || "timestamp";
+const __cpMcpPermissionPopupBuildStorageKey = __cpMcpPermissionPopupProtocol.buildPromptStorageKey || (e => `${__cpMcpPermissionPromptStorageKeyPrefix}${e}`);
+const __cpMcpPermissionPopupCreateStorageEntry = __cpMcpPermissionPopupProtocol.createPromptStorageEntry || ((e, t, r = Date.now()) => ({
+  [__cpMcpPermissionPromptStorageFieldPrompt]: e,
+  [__cpMcpPermissionPromptStorageFieldTabId]: t,
+  [__cpMcpPermissionPromptStorageFieldTimestamp]: r
+}));
+const __cpMcpBridgePairingQueryKeyRequestId = __cpPairingQueryKeys.REQUEST_ID || "request_id";
+const __cpMcpBridgePairingQueryKeyClientType = __cpPairingQueryKeys.CLIENT_TYPE || "client_type";
+const __cpMcpBridgePairingQueryKeyCurrentName = __cpPairingQueryKeys.CURRENT_NAME || "current_name";
+const __cpMcpPermissionPopupQueryKeyTabId = __cpMcpPermissionPopupQueryKeys.TAB_ID || "tabId";
+const __cpMcpPermissionPopupQueryKeyPermissionOnly = __cpMcpPermissionPopupQueryKeys.PERMISSION_ONLY || "mcpPermissionOnly";
+const __cpMcpPermissionPopupQueryKeyRequestId = __cpMcpPermissionPopupQueryKeys.REQUEST_ID || "requestId";
+const __cpMcpPermissionPopupCreateUrl = __cpMcpPermissionPopupProtocol.buildPopupUrl || ((e, t) => e(`sidepanel.html?${__cpMcpPermissionPopupQueryKeyTabId}=${t.tabId}&${__cpMcpPermissionPopupQueryKeyPermissionOnly}=true&${__cpMcpPermissionPopupQueryKeyRequestId}=${t.requestId}`));
+const __cpMcpPermissionPopupCreateWindowOptions = __cpMcpPermissionPopupProtocol.createPopupWindowOptions || ((e, t) => ({
+  url: __cpMcpPermissionPopupCreateUrl(e, t),
+  type: __cpShortcutsExecuteWindowTypePopup,
+  width: 600,
+  height: 600,
+  focused: true
+}));
+const __cpMcpPermissionPopupResponseTimeoutMs = __cpMcpPermissionPopupProtocol.RESPONSE_TIMEOUT_MS || __cpMcpBridgeContract.PERMISSION_POPUP_RESPONSE_TIMEOUT_MS || 30000;
+// 语义锚点：agent indicator 内容脚本显隐消息类型（bridge / sidepanel 都会跨 tab 发送）
+const __cpAgentIndicatorRuntimeMessageTypeShowAgentIndicators = __cpAgentIndicatorRuntimeMessageTypes.SHOW_AGENT_INDICATORS || "SHOW_AGENT_INDICATORS";
+const __cpAgentIndicatorRuntimeMessageTypeHideAgentIndicators = __cpAgentIndicatorRuntimeMessageTypes.HIDE_AGENT_INDICATORS || "HIDE_AGENT_INDICATORS";
+const __cpAgentIndicatorRuntimeMessageTypeHideForToolUse = __cpAgentIndicatorRuntimeMessageTypes.HIDE_FOR_TOOL_USE || "HIDE_FOR_TOOL_USE";
+const __cpAgentIndicatorRuntimeMessageTypeShowAfterToolUse = __cpAgentIndicatorRuntimeMessageTypes.SHOW_AFTER_TOOL_USE || "SHOW_AFTER_TOOL_USE";
+const __cpAgentIndicatorRuntimeMessageTypeShowStaticIndicator = __cpAgentIndicatorRuntimeMessageTypes.SHOW_STATIC_INDICATOR || "SHOW_STATIC_INDICATOR";
+const __cpAgentIndicatorRuntimeMessageTypeHideStaticIndicator = __cpAgentIndicatorRuntimeMessageTypes.HIDE_STATIC_INDICATOR || "HIDE_STATIC_INDICATOR";
+
+// 语义锚点：bridge WebSocket 消息类型（tool / permission / pairing）
+const __cpMcpBridgeSocketMessageTypeToolCall = __cpMcpBridgeContractMessages.tool_call || "tool_call";
+const __cpMcpBridgeSocketMessageTypeToolResult = __cpMcpBridgeContractMessages.tool_result || "tool_result";
+const __cpMcpBridgeSocketMessageTypePairingRequest = __cpMcpBridgeContractMessages.pairing_request || "pairing_request";
+const __cpMcpBridgeSocketMessageTypePermissionResponse = __cpMcpBridgeContractMessages.permission_response || "permission_response";
 let qa;
 let Ba = false;
 function Fa() {
   if ("ServiceWorkerGlobalScope" in globalThis) {
     if (!Ba) {
       Ba = true;
-      chrome.alarms.create(Ea, {
-        periodInMinutes: 0.5
+      chrome.alarms.create(__cpMcpBridgeKeepaliveAlarmName, {
+        periodInMinutes: __cpMcpBridgeAlarmPeriodMinutes
       });
       chrome.alarms.onAlarm.addListener(e => {
-        if (e.name === Ea) {
+        if (e.name === __cpMcpBridgeKeepaliveAlarmName) {
           Pa();
           if (ga?.readyState === WebSocket.OPEN) {
             ga.send(JSON.stringify({
-              type: "ping"
+              type: __cpMcpBridgeSocketMessageTypePing
             }));
           }
-          if (Date.now() - Ia >= 1800000) {
+          if (Date.now() - Ia >= __cpMcpBridgeRefreshProbeIntervalMs) {
             Ia = Date.now();
             f().then(({
               isRefreshed: e
@@ -12302,21 +12456,22 @@ function Fa() {
         }
       });
       chrome.runtime.onMessage.addListener((e, t, r) => {
-        if (e.type === "pairing_confirmed") {
+        // 语义锚点：bridge runtime listener 当前只显式消费 pairing_confirmed；pairing_dismissed 未在此处回 bridge，表现为用户取消配对的协议级 no-op。
+        if (e.type === __cpMcpBridgeRuntimeMessageTypePairingConfirmed) {
           const {
-            request_id: t,
+            [__cpMcpBridgeSocketFieldRequestId]: t,
             name: o
           } = e;
           (async function (e) {
             await chrome.storage.local.set({
-              bridgeDisplayName: e
+              [__cpMcpBridgeDisplayNameStorageKey]: e
             });
           })(o);
           Da().then(e => {
             La({
-              type: "pairing_response",
-              request_id: t,
-              device_id: e,
+              type: __cpMcpBridgeSocketMessageTypePairingResponse,
+              [__cpMcpBridgeSocketFieldRequestId]: t,
+              [__cpMcpBridgeSocketFieldDeviceId]: e,
               name: o
             });
           });
@@ -12330,6 +12485,7 @@ function Fa() {
   }
 }
 async function Wa(e) {
+  // 语义锚点：shortcuts_execute 独立窗口启动链（先写 targetTab，再打开 sidepanel window，再投递 EXECUTE_TASK）。
   const {
     tabId: t,
     prompt: o,
@@ -12346,14 +12502,14 @@ async function Wa(e) {
       skipPermissions: r,
       model: o
     } = e;
-    const a = chrome.runtime.getURL(`sidepanel.html?mode=window&sessionId=${t}${r ? "&skipPermissions=true" : ""}${o ? `&model=${encodeURIComponent(o)}` : ""}`);
+    const a = chrome.runtime.getURL(`sidepanel.html?${__cpShortcutsExecuteQueryKeyMode}=${__cpShortcutsExecuteQueryValueWindow}&${__cpShortcutsExecuteQueryKeySessionId}=${t}${r ? `&${__cpShortcutsExecuteQueryKeySkipPermissions}=true` : ""}${o ? `&${__cpShortcutsExecuteQueryKeyModel}=${encodeURIComponent(o)}` : ""}`);
     const n = await chrome.windows.create({
       url: a,
-      type: "popup",
-      width: 500,
-      height: 768,
-      left: 100,
-      top: 100,
+      type: __cpShortcutsExecuteWindowTypePopup,
+      width: __cpShortcutsExecuteWindowWidth,
+      height: __cpShortcutsExecuteWindowHeight,
+      left: __cpShortcutsExecuteWindowLeft,
+      top: __cpShortcutsExecuteWindowTop,
       focused: true
     });
     if (!n) {
@@ -12379,7 +12535,7 @@ async function Wa(e) {
       let l = false;
       const d = async () => {
         try {
-          if (Date.now() - c > 30000) {
+          if (Date.now() - c > __cpShortcutsExecuteLoadTimeoutMs) {
             i(new Error("Timeout waiting for tab to load for task execution"));
             return;
           }
@@ -12388,7 +12544,7 @@ async function Wa(e) {
               if (!l) {
                 l = true;
                 chrome.runtime.sendMessage({
-                  type: "EXECUTE_TASK",
+                  type: __cpSidepanelRuntimeMessageTypeExecuteTask,
                   prompt: r,
                   taskName: o,
                   runLogId: a,
@@ -12403,9 +12559,9 @@ async function Wa(e) {
                   }
                 });
               }
-            }, 3000);
+            }, __cpShortcutsExecuteSendDelayMs);
           } else {
-            setTimeout(d, 500);
+            setTimeout(d, __cpShortcutsExecuteLoadPollIntervalMs);
           }
         } catch (u) {
           i(u);
@@ -12425,6 +12581,8 @@ async function Wa(e) {
     success: true
   };
 }
+// 语义锚点：shortcuts_execute 通过新 sidepanel 窗口发送 EXECUTE_TASK 启动任务
+const __cpShortcutsExecuteStartInPopupWindow = Wa;
 let ja;
 async function Ha(e) {
   ja ??= new y(() => false);
@@ -13504,7 +13662,10 @@ const bn = e => ({
   }],
   is_error: true
 });
+// 语义锚点：MCP tool_call 的标准错误返回结构（tool_result.error 的兼容格式）
+const __cpMcpToolErrorResultFactory = bn;
 async function wn(e) {
+  // 语义锚点：MCP 工具执行主入口（tab 编排、域名策略、权限提示与结果回传）
   const t = crypto.randomUUID();
   const r = e.clientId;
   const o = Date.now();
@@ -13664,19 +13825,22 @@ async function wn(e) {
         o.permissionManager = t;
       }
       if (e.handlePermissionPrompts && e.toolUseId) {
+        // 语义锚点：bridge 权限请求握手（permission_request -> permission_response）
         o.onPermissionRequired = async t => function (e, t) {
           const r = crypto.randomUUID();
           return new Promise(o => {
-            Ca.set(r, {
+            // 语义锚点：requestId 只负责 bridge permission_request/permission_response 对账；
+            // toolUseId 继续挂在外层消息上，用来标识这次权限请求属于哪次 tool_call。
+            __cpMcpBridgePendingPermissionResponseLedger.set(r, {
               resolve: o
             });
             La({
-              type: "permission_request",
-              tool_use_id: e,
-              request_id: r,
-              tool_type: t.tool,
-              url: t.url,
-              action_data: t.actionData
+              type: __cpMcpBridgeSocketMessageTypePermissionRequest,
+              [__cpMcpBridgeSocketFieldToolUseId]: e,
+              [__cpMcpBridgeSocketFieldRequestId]: r,
+              [__cpMcpBridgeSocketFieldToolType]: t.tool,
+              [__cpMcpBridgeSocketFieldUrl]: t.url,
+              [__cpMcpBridgeSocketFieldActionData]: t.actionData
             });
           });
         }(e.toolUseId, t);
@@ -13772,6 +13936,7 @@ async function Tn() {
     }
   } catch (e) {}
 }
+// 语义锚点：background 侧 permission popup 串行队列，避免多个权限窗/前缀状态并发互相覆盖。
 let xn = Promise.resolve(true);
 async function Sn(e, t) {
   const r = xn.then(() => async function (e, t) {
@@ -13784,18 +13949,18 @@ async function Sn(e, t) {
     await F.addPermissionPrefix(t);
     _n.set(t, null);
     await chrome.storage.local.set({
-      [`mcp_prompt_${r}`]: {
-        prompt: e,
-        tabId: t,
-        timestamp: Date.now()
-      }
+      [__cpMcpPermissionPopupBuildStorageKey(r)]: __cpMcpPermissionPopupCreateStorageEntry(e, t, Date.now())
     });
+    // 语义锚点：permission prompt storage payload 里的 tabId/timestamp 主要给 background 账本与清理链使用；sidepanel consumer 实际只读 prompt。
     m("claude_chrome.permission.prompted", {
       permission_type: e.type,
       tool_type: e.tool,
       tab_id: t
     });
     return new Promise(a => {
+      // 语义锚点：这里把 requestId 绑定到 pending permission promise；sidepanel 的 requestId/allowed 回包会 resolve 它。
+      // 语义锚点：popup 权限链的 requestId 是 background <-> sidepanel 的唯一关联键；
+      // toolUseId 留在 bridge/tool 层，tabId 只负责 sidepanel 作用域与前缀恢复，不参与最终 resolve。
       let n;
       let s = false;
       const i = async (i = false) => {
@@ -13809,8 +13974,9 @@ async function Sn(e, t) {
             allowed: i,
             response_time_ms: Date.now() - o
           });
-          await chrome.storage.local.remove(`mcp_prompt_${r}`);
+          await chrome.storage.local.remove(__cpMcpPermissionPopupBuildStorageKey(r));
           if (n) {
+            // 语义锚点：收到 runtime MCP_PERMISSION_RESPONSE 后，background 会主动关闭 popup；手动关闭则留给 timeout 兜底。
             chrome.windows.remove(n).catch(() => {});
           }
           await F.addLoadingPrefix(t);
@@ -13819,27 +13985,29 @@ async function Sn(e, t) {
         }
       };
       const c = e => {
-        if (e.type === "MCP_PERMISSION_RESPONSE" && e.requestId === r) {
-          i(e.allowed);
+        // 语义锚点：permission 链只消费 MCP_PERMISSION_RESPONSE；
+        // pairing_dismissed 属于配对链 no-op，不会触发这里的 pending permission promise。
+        if (e.type === __cpMcpBridgeRuntimeMessageTypeMcpPermissionResponse && e[__cpMcpBridgeRuntimeMessageFieldRequestId] === r) {
+          i(e[__cpMcpBridgeRuntimeMessageFieldAllowed]);
         }
       };
       chrome.runtime.onMessage.addListener(c);
-      chrome.windows.create({
-        url: chrome.runtime.getURL(`sidepanel.html?tabId=${t}&mcpPermissionOnly=true&requestId=${r}`),
-        type: "popup",
-        width: 600,
-        height: 600,
-        focused: true
-      }, e => {
+      // 语义锚点：popup URL/window 配置已收口到 helper；这里只负责把 tabId/requestId 注入到 sidepanel permission-only 页面。
+      chrome.windows.create(__cpMcpPermissionPopupCreateWindowOptions(chrome.runtime.getURL, {
+        tabId: t,
+        requestId: r
+      }), e => {
         if (e) {
           n = e.id;
         } else {
+          // 语义锚点：popup 创建失败按拒绝处理，避免 pending promise 长时间悬挂。
           i(false);
         }
       });
       setTimeout(() => {
+        // 语义锚点：手动关闭 permission popup 不会立即回包；background 侧最终由 30s timeout 兜底拒绝。
         i(false);
-      }, 30000);
+      }, __cpMcpPermissionPopupResponseTimeoutMs);
     });
   }(e, t));
   xn = r.catch(() => false);
@@ -13889,5 +14057,7 @@ function Cn() {
     }
   }
 }
+// 语义锚点：MCP 工具执行入口别名（供后续定位与外提时搜索）
+const __cpMcpToolExecutor = wn;
 export { Ua as $, Ze as A, we as B, ua as C, pa as D, Q as E, Fe as F, qe as G, ee as H, fa as I, te as J, K, J as L, Be as M, R as N, Ya as O, en as P, Ja as Q, tn as R, Za as S, rn as T, ce as U, le as V, O as W, oe as X, Tn as Y, bn as Z, wn as _, ve as a, Pa as a0, Fa as a1, Cn as a2, Te as a3, $a as a4, Oa as a5, ie as b, Y as c, se as d, x as e, _e as f, N as g, pe as h, De as i, Ie as j, je as k, Oe as l, $e as m, Le as n, He as o, re as p, ye as q, Pe as r, Z as s, F as t, Ke as u, Re as v, Ae as w, Ue as x, Ee as y, Ne as z };
 
