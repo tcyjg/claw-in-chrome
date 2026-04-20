@@ -66,29 +66,72 @@ jobs:
 
           TAG="v${VERSION}"
           TRIGGER_SHA="${{ github.sha }}"
-          NOTES="$(git log -1 --format=%s "${TRIGGER_SHA}" 2>/dev/null || true)"
-          if [[ -z "${NOTES// }" ]]; then
-            NOTES="$(git log -1 --format=%s HEAD)"
-          fi
-          if [[ -z "${NOTES// }" ]]; then
-            NOTES="Release ${TAG}"
-          fi
 
           ZIP_NAME="claw-in-chrome-v${VERSION}.zip"
           ZIP_PATH="${RUNNER_TEMP}/${ZIP_NAME}"
           NOTES_PATH="${RUNNER_TEMP}/release-notes.md"
           LATEST_JSON_PATH="${RUNNER_TEMP}/latest.json"
 
-          printf '%s\n' "${NOTES}" > "${NOTES_PATH}"
+          export BEFORE_SHA TRIGGER_SHA TAG NOTES_PATH
+          node <<'NODE'
+          const fs = require("fs");
+          const { execFileSync } = require("child_process");
+
+          function git(args) {
+            try {
+              return execFileSync("git", args, {
+                encoding: "utf8"
+              });
+            } catch (error) {
+              return "";
+            }
+          }
+
+          function normalizeMessage(value) {
+            return String(value || "").replace(/\r/g, "").trim();
+          }
+
+          const before = String(process.env.BEFORE_SHA || "").trim();
+          const trigger = String(process.env.TRIGGER_SHA || "").trim();
+          const tag = String(process.env.TAG || "").trim();
+          const notesPath = String(process.env.NOTES_PATH || "").trim();
+
+          let shas = [];
+          if (before && before !== "0000000000000000000000000000000000000000" && trigger) {
+            shas = git(["rev-list", "--reverse", `${before}..${trigger}`])
+              .split(/\r?\n/)
+              .map(line => line.trim())
+              .filter(Boolean);
+          }
+
+          if (shas.length === 0 && trigger) {
+            shas = [trigger];
+          }
+
+          const sections = shas.map((sha) => {
+            const message = normalizeMessage(git(["show", "-s", "--format=%B", sha]));
+            if (!message) {
+              return "";
+            }
+            const lines = message.split("\n");
+            const title = String(lines.shift() || "").trim() || `Commit ${sha.slice(0, 7)}`;
+            const body = lines.join("\n").trim();
+            return body ? `### ${title}\n\n${body}` : `### ${title}`;
+          }).filter(Boolean);
+
+          const notes = sections.length > 0 ? sections.join("\n\n---\n\n") : `### Release ${tag}`;
+          fs.writeFileSync(notesPath, notes + "\n");
+          NODE
 
           export RELEASE_VERSION="${VERSION}"
-          export RELEASE_NOTES="${NOTES}"
+          export RELEASE_NOTES_PATH="${NOTES_PATH}"
           export RELEASE_MIN_SUPPORTED_VERSION="${MANUAL_MIN_SUPPORTED}"
           export LATEST_JSON_PATH
           node <<'NODE'
           const fs = require("fs");
           const version = process.env.RELEASE_VERSION;
-          const notes = process.env.RELEASE_NOTES || "";
+          const notesPath = String(process.env.RELEASE_NOTES_PATH || "").trim();
+          const notes = notesPath ? String(fs.readFileSync(notesPath, "utf8")).trim() : "";
           const minSupportedVersion = String(process.env.RELEASE_MIN_SUPPORTED_VERSION || "").trim();
           const payload = {
             version,

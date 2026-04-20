@@ -109,10 +109,16 @@ function testMinSupportedVersionIsOptional() {
   assert.match(workflowSource, /if \(minSupportedVersion\)\s*\{\s*payload\.min_supported_version = minSupportedVersion;/m, "latest.json should only include min_supported_version when explicitly provided");
 }
 
-function testReleaseNotesUseTriggeringCommitTitle() {
+function testReleaseNotesUseTriggeringPushCommitMessages() {
+  assert.match(workflowSource, /BEFORE_SHA="\$\{\{ github\.event\.before \}\}"/, "workflow should capture the push before sha");
   assert.match(workflowSource, /TRIGGER_SHA="\$\{\{ github\.sha \}\}"/, "workflow should capture the triggering commit sha");
-  assert.match(workflowSource, /git log -1 --format=%s "\$\{TRIGGER_SHA\}"/, "workflow should build notes from the triggering commit title");
-  assert.doesNotMatch(workflowSource, /git log --format='- %s'/, "workflow should not concatenate multiple commit titles into release notes");
+  assert.match(workflowSource, /target_commitish:\s+\$\{\{ github\.sha \}\}/m, "release target should remain the triggering commit");
+  assert.equal(workflowSource.includes('git(["rev-list", "--reverse", `${before}..${trigger}`])'), true, "workflow should collect every commit sha from the triggering push range");
+  assert.equal(workflowSource.includes('git(["show", "-s", "--format=%B", sha])'), true, "workflow should read full commit messages including multi-line bodies");
+  assert.equal(workflowSource.includes("if (shas.length === 0 && trigger) {"), true, "workflow should fall back to the triggering commit when the push range is unavailable");
+  assert.equal(workflowSource.includes('sections.join("\\n\\n---\\n\\n")'), true, "workflow should preserve every commit message as its own markdown section");
+  assert.doesNotMatch(workflowSource, /git log --reverse --format='- %s'/, "workflow should no longer truncate push notes to commit titles");
+  assert.doesNotMatch(workflowSource, /git log -1 --format='- %s'/, "workflow should no longer truncate fallback notes to a single title line");
 }
 
 function main() {
@@ -120,7 +126,7 @@ function main() {
   testReleaseArchiveExcludesLocalPreviewAddon();
   testWorkflowUsesTrackedPackageList();
   testMinSupportedVersionIsOptional();
-  testReleaseNotesUseTriggeringCommitTitle();
+  testReleaseNotesUseTriggeringPushCommitMessages();
   console.log("release workflow metadata tests passed");
 }
 
